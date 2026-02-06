@@ -1708,9 +1708,8 @@ const WorkoutTracker = () => {
                         </button>
                       </div>
                     );
-                  })}
-                      }
-                    </div>
+                  }))}
+                </div>
                   
                     {/* Add Exercise On-The-Fly */}
                   <div style={{
@@ -1901,10 +1900,10 @@ const WorkoutTracker = () => {
                         </button>
                       </div>
                     </div>
-                    </>
                   </div>
+                  </>
+                )}
               </div>
-            )}
           </div>
         )}
 
