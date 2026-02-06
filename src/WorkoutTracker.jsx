@@ -568,18 +568,24 @@ const WorkoutTracker = () => {
   };
 
   const startWorkout = (dayType) => {
-
-    const exerciseIds = programs[dayType];
+    const exerciseIds = programs[dayType] || [];
     const workout = {};
+    
     exerciseIds.forEach(id => {
-      workout[id] = {
-        sets: [{ weight: exercises[id].lastWeight, reps: exercises[id].lastReps }]
-      };
+      // Only add if exercise exists
+      if (exercises[id]) {
+        workout[id] = {
+          sets: [{ weight: exercises[id].lastWeight, reps: exercises[id].lastReps }]
+        };
+      }
     });
+    
     setCurrentWorkout(workout);
   };
 
   const addSet = (exerciseId) => {
+    if (!exercises[exerciseId]) return; // Safety check
+    
     setCurrentWorkout(prev => ({
       ...prev,
       [exerciseId]: {
@@ -1510,6 +1516,8 @@ const WorkoutTracker = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   {Object.entries(currentWorkout).map(([exerciseId, data]) => {
                     const exercise = exercises[exerciseId];
+                    if (!exercise) return null; // Skip if exercise doesn't exist
+                    
                     return (
                       <div key={exerciseId} className="exercise-card" style={{
                         background: 'rgba(10, 6, 4, 0.4)',
