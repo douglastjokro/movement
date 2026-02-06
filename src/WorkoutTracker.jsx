@@ -35,8 +35,8 @@ const WorkoutCalendar = ({ workoutHistory }) => {
     const { daysInMonth, year, month } = getDaysInMonth(selectedMonth);
     const workoutDates = getWorkoutDatesInMonth();
     
-    // Training start date: December 10, 2025
-    const trainingStartDate = new Date('2025-12-10');
+    // Training start date: December 9, 2025
+    const trainingStartDate = new Date('2025-12-09');
     
     let expectedCount = 0;
     let completedCount = workoutDates.length;
@@ -59,8 +59,8 @@ const WorkoutCalendar = ({ workoutHistory }) => {
   };
   
   const getAllTimeStats = () => {
-    // Training start date: December 10, 2025 (earliest possible)
-    const trainingStartDate = new Date('2025-12-10');
+    // Training start date: December 9, 2025 (earliest possible)
+    const trainingStartDate = new Date('2025-12-09');
     
     // Filter workouts to only include those on or after start date
     const validWorkouts = workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
@@ -113,8 +113,8 @@ const WorkoutCalendar = ({ workoutHistory }) => {
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
     const todayDate = isCurrentMonth ? today.getDate() : -1;
     
-    // Training start date: December 10, 2025
-    const trainingStartDate = new Date('2025-12-10');
+    // Training start date: December 9, 2025
+    const trainingStartDate = new Date('2025-12-09');
     
     const days = [];
     
@@ -706,8 +706,8 @@ const WorkoutTracker = () => {
       try {
         const data = JSON.parse(savedData);
         
-        // Filter exercises to remove history before December 10, 2025
-        const trainingStartDate = new Date('2025-12-10');
+        // Filter exercises to remove history before December 9, 2025
+        const trainingStartDate = new Date('2025-12-09');
         if (data.exercises) {
           const filteredExercises = {};
           Object.entries(data.exercises).forEach(([key, exercise]) => {
@@ -726,7 +726,7 @@ const WorkoutTracker = () => {
           setPrograms(data.programs);
         }
         if (data.workoutHistory) {
-          // Filter out workouts before December 10, 2025
+          // Filter out workouts before December 9, 2025
           const filteredHistory = data.workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
           setWorkoutHistory(filteredHistory);
         }
@@ -952,8 +952,8 @@ const WorkoutTracker = () => {
 
         const data = await contentResponse.json();
         
-        // Filter exercises to remove history before December 10, 2025
-        const trainingStartDate = new Date('2025-12-10');
+        // Filter exercises to remove history before December 9, 2025
+        const trainingStartDate = new Date('2025-12-09');
         if (data.exercises) {
           const filteredExercises = {};
           Object.entries(data.exercises).forEach(([key, exercise]) => {
@@ -970,7 +970,7 @@ const WorkoutTracker = () => {
         if (data.programs) setPrograms(data.programs);
         if (data.currentWorkout) setCurrentWorkout(data.currentWorkout);
         if (data.workoutHistory) {
-          // Filter out workouts before December 10, 2025
+          // Filter out workouts before December 9, 2025
           const filteredHistory = data.workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
           setWorkoutHistory(filteredHistory);
         }
