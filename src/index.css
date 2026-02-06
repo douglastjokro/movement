@@ -1,0 +1,41 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: #0a0604;
+  color: #f5f1ed;
+  overflow-x: hidden;
+}
+
+input[type="number"], 
+input[type="date"], 
+input[type="text"] {
+  background: rgba(205, 160, 110, 0.05);
+  border: 1px solid rgba(205, 160, 110, 0.2);
+  color: #f5f1ed;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+input[type="number"]:focus, 
+input[type="date"]:focus,
+input[type="text"]:focus {
+  border-color: rgba(205, 160, 110, 0.4);
+  background: rgba(205, 160, 110, 0.08);
+}
+
+button {
+  font-family: 'Inter', sans-serif;
+  transition: all 0.3s ease;
+}
+
+#root {
+  min-height: 100vh;
+}
