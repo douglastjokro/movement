@@ -1708,10 +1708,9 @@ const WorkoutTracker = () => {
                         </button>
                       </div>
                     );
-                  }))}
-                </div>
+                  })}
                   
-                    {/* Add Exercise On-The-Fly */}
+                  {/* Add Exercise On-The-Fly */}
                   <div style={{
                     background: 'rgba(10, 6, 4, 0.4)',
                     backdropFilter: 'blur(20px)',
@@ -1903,6 +1902,7 @@ const WorkoutTracker = () => {
                   </div>
                   </>
                 )}
+                </div>
               </div>
           </div>
         )}
