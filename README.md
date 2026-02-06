@@ -2,9 +2,27 @@
 
 ## ✅ What Was Fixed:
 
+### Fix #1: Google Drive Authentication
 Your Google Drive wasn't working because the code used Google's **OLD authentication method** (`gapi.auth2`) which has cookie/iframe issues.
 
 I updated it to use Google's **NEW authentication method** (`Google Identity Services`) which works perfectly!
+
+### Fix #2: Manage Tab Edit/Delete
+The Edit button didn't work and there was no delete functionality.
+
+Now you can:
+- ✅ Edit exercise names, body parts, weight, reps
+- ✅ Delete exercises (with confirmation)
+- ✅ Changes save automatically to Google Drive
+
+### Fix #3: Sign Out Button
+Added a sign out button so you can disconnect from Google Drive.
+
+### Fix #4: Visible "Movement App" Folder
+Your workout data is now saved in a folder you can SEE in Google Drive!
+- **Location:** Google Drive → "Movement App" folder
+- **File:** `movement-workout-data.json`
+- **You can:** Download, backup, view your data anytime
 
 ---
 

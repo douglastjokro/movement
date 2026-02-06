@@ -251,7 +251,22 @@ const WorkoutTracker = () => {
     }
   };
 
-  // Save to Google Drive
+  // Sign out function
+  const signOutGoogleDrive = () => {
+    if (accessToken) {
+      // Revoke the token
+      window.google.accounts.oauth2.revoke(accessToken, () => {
+        console.log('Token revoked');
+      });
+      
+      setAccessToken(null);
+      setGDriveConnected(false);
+      
+      console.log('✅ Signed out from Google Drive');
+    }
+  };
+
+  // Save to Google Drive (in visible "Movement App" folder)
   const saveToGoogleDrive = async () => {
     if (!gDriveConnected || !accessToken) return;
 
@@ -264,11 +279,14 @@ const WorkoutTracker = () => {
 
     const fileContent = JSON.stringify(data, null, 2);
     const fileName = 'movement-workout-data.json';
+    const folderName = 'Movement App';
 
     try {
-      // Check if file exists
-      const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}'&spaces=appDataFolder`,
+      console.log('💾 Saving to Google Drive...');
+      
+      // First, find or create the "Movement App" folder
+      const folderSearch = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -276,11 +294,54 @@ const WorkoutTracker = () => {
         }
       );
 
-      const files = await response.json();
-      const fileId = files.files && files.files.length > 0 ? files.files[0].id : null;
+      const folderResults = await folderSearch.json();
+      let folderId;
+
+      if (folderResults.files && folderResults.files.length > 0) {
+        // Folder exists
+        folderId = folderResults.files[0].id;
+        console.log('📁 Found existing folder:', folderId);
+      } else {
+        // Create folder
+        console.log('📁 Creating new folder...');
+        const folderMetadata = {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder'
+        };
+
+        const createFolderResponse = await fetch(
+          'https://www.googleapis.com/drive/v3/files',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(folderMetadata)
+          }
+        );
+
+        const newFolder = await createFolderResponse.json();
+        folderId = newFolder.id;
+        console.log('✅ Created folder:', folderId);
+      }
+
+      // Now check if file exists in the folder
+      const fileSearch = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${folderId}' in parents and trashed=false`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      const fileResults = await fileSearch.json();
+      const fileId = fileResults.files && fileResults.files.length > 0 ? fileResults.files[0].id : null;
 
       if (fileId) {
         // Update existing file
+        console.log('📝 Updating existing file...');
         await fetch(
           `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
           {
@@ -292,11 +353,13 @@ const WorkoutTracker = () => {
             body: fileContent
           }
         );
+        console.log('✅ File updated!');
       } else {
         // Create new file
+        console.log('📄 Creating new file...');
         const metadata = {
           name: fileName,
-          parents: ['appDataFolder']
+          parents: [folderId]
         };
 
         const form = new FormData();
@@ -313,22 +376,28 @@ const WorkoutTracker = () => {
             body: form
           }
         );
+        console.log('✅ File created!');
       }
+      
+      console.log('✅ Successfully saved to Google Drive!');
     } catch (error) {
-      console.error('Error saving to Google Drive:', error);
+      console.error('❌ Error saving to Google Drive:', error);
     }
   };
 
-  // Load from Google Drive
+    // Load from Google Drive
   const loadFromGoogleDrive = async (token = accessToken) => {
     if (!token) return;
 
     const fileName = 'movement-workout-data.json';
+    const folderName = 'Movement App';
 
     try {
-      // Find the file
-      const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}'&spaces=appDataFolder&fields=files(id)`,
+      console.log('📥 Loading from Google Drive...');
+      
+      // Find the "Movement App" folder
+      const folderSearch = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -336,10 +405,31 @@ const WorkoutTracker = () => {
         }
       );
 
-      const files = await response.json();
+      const folderResults = await folderSearch.json();
       
-      if (files.files && files.files.length > 0) {
-        const fileId = files.files[0].id;
+      if (!folderResults.files || folderResults.files.length === 0) {
+        console.log('ℹ️ No folder found yet');
+        return;
+      }
+
+      const folderId = folderResults.files[0].id;
+      console.log('📁 Found folder:', folderId);
+
+      // Find the file in the folder
+      const fileSearch = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${folderId}' in parents and trashed=false&fields=files(id)`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      const fileResults = await fileSearch.json();
+      
+      if (fileResults.files && fileResults.files.length > 0) {
+        const fileId = fileResults.files[0].id;
+        console.log('📄 Found file:', fileId);
         
         // Download file content
         const contentResponse = await fetch(
@@ -356,13 +446,17 @@ const WorkoutTracker = () => {
         if (data.exercises) setExercises(data.exercises);
         if (data.programs) setPrograms(data.programs);
         if (data.currentWorkout) setCurrentWorkout(data.currentWorkout);
+        
+        console.log('✅ Data loaded from Google Drive!');
+      } else {
+        console.log('ℹ️ No file found yet');
       }
     } catch (error) {
-      console.error('Error loading from Google Drive:', error);
+      console.error('❌ Error loading from Google Drive:', error);
     }
   };
 
-  // Auto-save to Google Drive when data changes
+    // Auto-save to Google Drive when data changes
   useEffect(() => {
     if (gDriveConnected && accessToken) {
       const timeoutId = setTimeout(() => {
@@ -769,29 +863,50 @@ const WorkoutTracker = () => {
             {isLoading ? 'Connecting...' : (gapiLoaded ? 'Sync Drive' : 'Loading API...')}
           </button>
         ) : (
-          <div style={{
-            background: 'rgba(205, 160, 110, 0.1)',
-            border: '1px solid rgba(205, 160, 110, 0.3)',
-            padding: '8px 18px',
-            borderRadius: '24px',
-            color: '#cda06e',
-            fontWeight: 400,
-            fontSize: '12px',
-            letterSpacing: '0.5px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: '#cda06e',
-              boxShadow: '0 0 8px rgba(205, 160, 110, 0.8)'
-            }} />
-            Synced
+              background: 'rgba(205, 160, 110, 0.1)',
+              border: '1px solid rgba(205, 160, 110, 0.3)',
+              padding: '8px 18px',
+              borderRadius: '24px',
+              color: '#cda06e',
+              fontWeight: 400,
+              fontSize: '12px',
+              letterSpacing: '0.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#cda06e',
+                boxShadow: '0 0 8px rgba(205, 160, 110, 0.8)'
+              }} />
+              Synced
+            </div>
+            
+            <button
+              onClick={signOutGoogleDrive}
+              style={{
+                background: 'rgba(184, 125, 94, 0.08)',
+                border: '1px solid rgba(184, 125, 94, 0.2)',
+                padding: '8px 18px',
+                borderRadius: '24px',
+                color: '#b87d5e',
+                fontWeight: 400,
+                fontSize: '12px',
+                letterSpacing: '0.5px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Sign Out
+            </button>
           </div>
         )}
+
       </div>
 
       {/* Navigation */}
@@ -1551,8 +1666,177 @@ const WorkoutTracker = () => {
               color: '#d4a574',
               fontWeight: 200
             }}>
-              Manage
+              Manage Exercises
             </h2>
+            
+            {editingExercise ? (
+              // Edit Form
+              <div style={{
+                background: 'rgba(10, 6, 4, 0.6)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(205, 160, 110, 0.2)',
+                borderRadius: '24px',
+                padding: '32px',
+                marginBottom: '24px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '20px', color: '#d4a574', fontWeight: 300 }}>
+                    Edit Exercise
+                  </h3>
+                  <button
+                    onClick={() => setEditingExercise(null)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#8b7566',
+                      cursor: 'pointer',
+                      padding: '8px'
+                    }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div style={{ display: 'grid', gap: '20px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                      EXERCISE NAME
+                    </label>
+                    <input
+                      type="text"
+                      value={editingExercise.name}
+                      onChange={(e) => setEditingExercise({...editingExercise, name: e.target.value})}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(205, 160, 110, 0.05)',
+                        border: '1px solid rgba(205, 160, 110, 0.2)',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        color: '#f5f1ed',
+                        fontSize: '15px'
+                      }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                      BODY PART
+                    </label>
+                    <select
+                      value={editingExercise.bodyPart}
+                      onChange={(e) => setEditingExercise({...editingExercise, bodyPart: e.target.value})}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(205, 160, 110, 0.05)',
+                        border: '1px solid rgba(205, 160, 110, 0.2)',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        color: '#f5f1ed',
+                        fontSize: '15px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="Chest">Chest</option>
+                      <option value="Back">Back</option>
+                      <option value="Shoulders">Shoulders</option>
+                      <option value="Biceps">Biceps</option>
+                      <option value="Triceps">Triceps</option>
+                      <option value="Legs">Legs</option>
+                      <option value="Abs">Abs</option>
+                      <option value="Cardio">Cardio</option>
+                    </select>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                        LAST WEIGHT (KG)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingExercise.lastWeight}
+                        onChange={(e) => setEditingExercise({...editingExercise, lastWeight: parseFloat(e.target.value)})}
+                        step="0.5"
+                        style={{
+                          width: '100%',
+                          background: 'rgba(205, 160, 110, 0.05)',
+                          border: '1px solid rgba(205, 160, 110, 0.2)',
+                          padding: '12px',
+                          borderRadius: '12px',
+                          color: '#f5f1ed',
+                          fontSize: '15px'
+                        }}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                        LAST REPS
+                      </label>
+                      <input
+                        type="number"
+                        value={editingExercise.lastReps}
+                        onChange={(e) => setEditingExercise({...editingExercise, lastReps: parseInt(e.target.value)})}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(205, 160, 110, 0.05)',
+                          border: '1px solid rgba(205, 160, 110, 0.2)',
+                          padding: '12px',
+                          borderRadius: '12px',
+                          color: '#f5f1ed',
+                          fontSize: '15px'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                    <button
+                      onClick={() => {
+                        const updated = {...exercises};
+                        updated[editingExercise.id] = editingExercise;
+                        setExercises(updated);
+                        setEditingExercise(null);
+                      }}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(205, 160, 110, 0.2)',
+                        border: '1px solid rgba(205, 160, 110, 0.3)',
+                        padding: '14px',
+                        borderRadius: '16px',
+                        color: '#d4a574',
+                        fontWeight: 400,
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <Save size={16} />
+                      Save Changes
+                    </button>
+                    
+                    <button
+                      onClick={() => setEditingExercise(null)}
+                      style={{
+                        background: 'rgba(184, 125, 94, 0.1)',
+                        border: '1px solid rgba(184, 125, 94, 0.2)',
+                        padding: '14px 24px',
+                        borderRadius: '16px',
+                        color: '#b87d5e',
+                        fontWeight: 400,
+                        fontSize: '14px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {Object.values(exercises).map(exercise => (
@@ -1592,28 +1876,65 @@ const WorkoutTracker = () => {
                     </div>
                     <div style={{ fontSize: '13px', color: '#6b5d52', fontWeight: 200 }}>
                       Current: {exercise.lastWeight}kg × {exercise.lastReps} | 
-                      Used in {Object.entries(programs).filter(([_, exs]) => exs.includes(exercise.id)).map(([day]) => day).join(', ')}
+                      Used in {Object.entries(programs).filter(([_, exs]) => exs.includes(exercise.id)).map(([day]) => day).join(', ') || 'None'}
                     </div>
                   </div>
-                  <button
-                    style={{
-                      background: 'rgba(205, 160, 110, 0.08)',
-                      border: '1px solid rgba(205, 160, 110, 0.2)',
-                      padding: '10px 20px',
-                      borderRadius: '14px',
-                      color: '#d4a574',
-                      fontWeight: 200,
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      letterSpacing: '0.3px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <Edit2 size={13} strokeWidth={1.5} />
-                    Edit
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => setEditingExercise({...exercise})}
+                      style={{
+                        background: 'rgba(205, 160, 110, 0.08)',
+                        border: '1px solid rgba(205, 160, 110, 0.2)',
+                        padding: '10px 20px',
+                        borderRadius: '14px',
+                        color: '#d4a574',
+                        fontWeight: 200,
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        letterSpacing: '0.3px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <Edit2 size={13} strokeWidth={1.5} />
+                      Edit
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete "${exercise.name}"? This cannot be undone.`)) {
+                          const updated = {...exercises};
+                          delete updated[exercise.id];
+                          setExercises(updated);
+                          
+                          // Remove from programs
+                          const updatedPrograms = {...programs};
+                          Object.keys(updatedPrograms).forEach(day => {
+                            updatedPrograms[day] = updatedPrograms[day].filter(id => id !== exercise.id);
+                          });
+                          setPrograms(updatedPrograms);
+                        }
+                      }}
+                      style={{
+                        background: 'rgba(184, 125, 94, 0.08)',
+                        border: '1px solid rgba(184, 125, 94, 0.2)',
+                        padding: '10px 16px',
+                        borderRadius: '14px',
+                        color: '#b87d5e',
+                        fontWeight: 200,
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        letterSpacing: '0.3px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <X size={13} strokeWidth={1.5} />
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
