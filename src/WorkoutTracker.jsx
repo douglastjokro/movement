@@ -1,6 +1,411 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move } from 'lucide-react';
+import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move, ChevronLeft } from 'lucide-react';
+
+// Workout Calendar Component
+const WorkoutCalendar = ({ workoutHistory }) => {
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  
+  // Expected workout days: Monday (Push), Tuesday (Pull), Wednesday (Legs), Friday (Upper), Saturday (Lower)
+  const expectedDays = [1, 2, 3, 5, 6]; // 0=Sunday, 1=Monday, etc.
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    return { daysInMonth, startingDayOfWeek, year, month };
+  };
+  
+  const getWorkoutDatesInMonth = () => {
+    const { year, month } = getDaysInMonth(selectedMonth);
+    return workoutHistory
+      .filter(w => {
+        const date = new Date(w.date);
+        return date.getFullYear() === year && date.getMonth() === month;
+      })
+      .map(w => new Date(w.date).getDate());
+  };
+  
+  const getMonthStats = () => {
+    const { daysInMonth, year, month } = getDaysInMonth(selectedMonth);
+    const workoutDates = getWorkoutDatesInMonth();
+    
+    let expectedCount = 0;
+    let completedCount = workoutDates.length;
+    
+    // Count expected workout days in this month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      const isPastDate = date <= new Date();
+      
+      if (expectedDays.includes(dayOfWeek) && isPastDate) {
+        expectedCount++;
+      }
+    }
+    
+    const missedCount = Math.max(0, expectedCount - completedCount);
+    
+    return { expectedCount, completedCount, missedCount };
+  };
+  
+  const getAllTimeStats = () => {
+    const totalCompleted = workoutHistory.length;
+    
+    // Calculate total expected workouts from first workout to today
+    if (workoutHistory.length === 0) {
+      return { totalExpected: 0, totalCompleted: 0, totalMissed: 0 };
+    }
+    
+    const firstWorkoutDate = new Date(Math.min(...workoutHistory.map(w => new Date(w.date))));
+    const today = new Date();
+    
+    let totalExpected = 0;
+    const currentDate = new Date(firstWorkoutDate);
+    
+    while (currentDate <= today) {
+      const dayOfWeek = currentDate.getDay();
+      if (expectedDays.includes(dayOfWeek)) {
+        totalExpected++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    const totalMissed = Math.max(0, totalExpected - totalCompleted);
+    
+    return { totalExpected, totalCompleted, totalMissed };
+  };
+  
+  const renderCalendar = () => {
+    const { daysInMonth, startingDayOfWeek } = getDaysInMonth(selectedMonth);
+    const workoutDates = getWorkoutDatesInMonth();
+    const { year, month } = getDaysInMonth(selectedMonth);
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+    const todayDate = isCurrentMonth ? today.getDate() : -1;
+    
+    const days = [];
+    
+    // Empty cells for days before month starts
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(<div key={`empty-${i}`} style={{ padding: '8px' }}></div>);
+    }
+    
+    // Calendar days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      const isExpectedDay = expectedDays.includes(dayOfWeek);
+      const hasWorkout = workoutDates.includes(day);
+      const isPast = date < today || (isCurrentMonth && day < todayDate);
+      const isToday = isCurrentMonth && day === todayDate;
+      const isMissed = isExpectedDay && isPast && !hasWorkout && !isToday;
+      
+      days.push(
+        <div
+          key={day}
+          style={{
+            padding: '8px',
+            textAlign: 'center',
+            borderRadius: '8px',
+            background: hasWorkout 
+              ? 'rgba(76, 175, 80, 0.2)'  // Green for workout days
+              : isMissed
+              ? 'rgba(244, 67, 54, 0.15)'  // Red for missed days
+              : isToday
+              ? 'rgba(205, 160, 110, 0.2)'  // Gold for today
+              : 'transparent',
+            border: isToday ? '1px solid rgba(205, 160, 110, 0.5)' : 'none',
+            fontSize: '13px',
+            fontWeight: isToday ? 500 : 300,
+            color: hasWorkout 
+              ? '#81C784'
+              : isMissed
+              ? '#E57373'
+              : isToday
+              ? '#d4a574'
+              : '#8b7566',
+            position: 'relative'
+          }}
+        >
+          {day}
+          {isExpectedDay && !hasWorkout && !isPast && (
+            <div style={{
+              position: 'absolute',
+              bottom: '4px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '4px',
+              height: '4px',
+              borderRadius: '50%',
+              background: 'rgba(205, 160, 110, 0.4)'
+            }} />
+          )}
+        </div>
+      );
+    }
+    
+    return days;
+  };
+  
+  const monthStats = getMonthStats();
+  const allTimeStats = getAllTimeStats();
+  
+  const changeMonth = (delta) => {
+    setSelectedMonth(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + delta);
+      return newDate;
+    });
+  };
+  
+  return (
+    <div>
+      <h3 style={{
+        margin: '0 0 24px 0',
+        fontSize: '15px',
+        letterSpacing: '1px',
+        color: '#d4a574',
+        fontWeight: 200
+      }}>
+        Workout Tracker
+      </h3>
+      
+      {/* Month Selector */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px'
+      }}>
+        <button
+          onClick={() => changeMonth(-1)}
+          style={{
+            background: 'rgba(205, 160, 110, 0.1)',
+            border: '1px solid rgba(205, 160, 110, 0.2)',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            color: '#d4a574',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '13px',
+            fontWeight: 300
+          }}
+        >
+          <ChevronLeft size={16} />
+        </button>
+        
+        <div style={{
+          fontSize: '16px',
+          fontWeight: 300,
+          color: '#f5f1ed',
+          letterSpacing: '0.5px'
+        }}>
+          {selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </div>
+        
+        <button
+          onClick={() => changeMonth(1)}
+          style={{
+            background: 'rgba(205, 160, 110, 0.1)',
+            border: '1px solid rgba(205, 160, 110, 0.2)',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            color: '#d4a574',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '13px',
+            fontWeight: 300
+          }}
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      
+      {/* Day labels */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '4px',
+        marginBottom: '8px'
+      }}>
+        {dayNames.map(day => (
+          <div key={day} style={{
+            textAlign: 'center',
+            fontSize: '10px',
+            fontWeight: 300,
+            color: '#6b5d52',
+            letterSpacing: '0.5px',
+            padding: '4px'
+          }}>
+            {day.slice(0, 3).toUpperCase()}
+          </div>
+        ))}
+      </div>
+      
+      {/* Calendar Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '4px',
+        marginBottom: '24px'
+      }}>
+        {renderCalendar()}
+      </div>
+      
+      {/* Month Stats */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '12px',
+        marginBottom: '20px'
+      }}>
+        <div style={{
+          background: 'rgba(76, 175, 80, 0.1)',
+          border: '1px solid rgba(76, 175, 80, 0.2)',
+          borderRadius: '12px',
+          padding: '16px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '24px', fontWeight: 200, color: '#81C784', marginBottom: '4px' }}>
+            {monthStats.completedCount}
+          </div>
+          <div style={{ fontSize: '10px', color: '#6b5d52', fontWeight: 300, letterSpacing: '0.5px' }}>
+            ATTENDED
+          </div>
+        </div>
+        
+        <div style={{
+          background: 'rgba(244, 67, 54, 0.1)',
+          border: '1px solid rgba(244, 67, 54, 0.2)',
+          borderRadius: '12px',
+          padding: '16px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '24px', fontWeight: 200, color: '#E57373', marginBottom: '4px' }}>
+            {monthStats.missedCount}
+          </div>
+          <div style={{ fontSize: '10px', color: '#6b5d52', fontWeight: 300, letterSpacing: '0.5px' }}>
+            MISSED
+          </div>
+        </div>
+        
+        <div style={{
+          background: 'rgba(205, 160, 110, 0.1)',
+          border: '1px solid rgba(205, 160, 110, 0.2)',
+          borderRadius: '12px',
+          padding: '16px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '24px', fontWeight: 200, color: '#d4a574', marginBottom: '4px' }}>
+            {monthStats.completedCount > 0 ? Math.round((monthStats.completedCount / Math.max(monthStats.expectedCount, 1)) * 100) : 0}%
+          </div>
+          <div style={{ fontSize: '10px', color: '#6b5d52', fontWeight: 300, letterSpacing: '0.5px' }}>
+            COMPLETION
+          </div>
+        </div>
+      </div>
+      
+      {/* All Time Stats */}
+      <div style={{
+        background: 'rgba(205, 160, 110, 0.05)',
+        border: '1px solid rgba(205, 160, 110, 0.15)',
+        borderRadius: '12px',
+        padding: '20px'
+      }}>
+        <div style={{
+          fontSize: '11px',
+          letterSpacing: '1px',
+          color: '#8b7566',
+          fontWeight: 300,
+          marginBottom: '12px'
+        }}>
+          ALL TIME
+        </div>
+        
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '16px'
+        }}>
+          <div>
+            <div style={{ fontSize: '20px', fontWeight: 200, color: '#81C784', marginBottom: '2px' }}>
+              {allTimeStats.totalCompleted}
+            </div>
+            <div style={{ fontSize: '9px', color: '#6b5d52', fontWeight: 300, letterSpacing: '0.5px' }}>
+              TOTAL DONE
+            </div>
+          </div>
+          
+          <div>
+            <div style={{ fontSize: '20px', fontWeight: 200, color: '#E57373', marginBottom: '2px' }}>
+              {allTimeStats.totalMissed}
+            </div>
+            <div style={{ fontSize: '9px', color: '#6b5d52', fontWeight: 300, letterSpacing: '0.5px' }}>
+              TOTAL MISSED
+            </div>
+          </div>
+          
+          <div>
+            <div style={{ fontSize: '20px', fontWeight: 200, color: '#d4a574', marginBottom: '2px' }}>
+              {allTimeStats.totalCompleted > 0 ? Math.round((allTimeStats.totalCompleted / Math.max(allTimeStats.totalExpected, 1)) * 100) : 0}%
+            </div>
+            <div style={{ fontSize: '9px', color: '#6b5d52', fontWeight: 300, letterSpacing: '0.5px' }}>
+              COMPLETION
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Legend */}
+      <div style={{
+        display: 'flex',
+        gap: '16px',
+        marginTop: '20px',
+        fontSize: '11px',
+        color: '#8b7566',
+        fontWeight: 300
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{
+            width: '12px',
+            height: '12px',
+            borderRadius: '4px',
+            background: 'rgba(76, 175, 80, 0.3)'
+          }} />
+          Workout Day
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{
+            width: '12px',
+            height: '12px',
+            borderRadius: '4px',
+            background: 'rgba(244, 67, 54, 0.2)'
+          }} />
+          Missed Day
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{
+            width: '12px',
+            height: '12px',
+            borderRadius: '4px',
+            border: '1px solid rgba(205, 160, 110, 0.5)'
+          }} />
+          Today
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const WorkoutTracker = () => {
   // Google Drive Configuration
@@ -681,6 +1086,17 @@ const WorkoutTracker = () => {
     }
     
     setExercises(updatedExercises);
+    
+    // Also remove from workoutHistory if this was the last exercise for that date
+    // Check if any other exercise still has history for this date
+    const hasOtherExercisesOnDate = Object.values(updatedExercises).some(ex => 
+      ex.history && ex.history.some(entry => entry.date === dateToDelete)
+    );
+    
+    if (!hasOtherExercisesOnDate) {
+      // Remove this date from workoutHistory since no exercises remain
+      setWorkoutHistory(workoutHistory.filter(w => w.date !== dateToDelete));
+    }
   };
 
   const updateHistoryEntry = (exerciseId, dateToUpdate, setIndex, newWeight, newReps) => {
@@ -1098,6 +1514,17 @@ const WorkoutTracker = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Workout Calendar Tracker */}
+            <div style={{
+              background: 'rgba(10, 6, 4, 0.4)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(205, 160, 110, 0.1)',
+              borderRadius: '24px',
+              padding: '40px'
+            }}>
+              <WorkoutCalendar workoutHistory={workoutHistory} />
             </div>
 
             {/* Body Part Progress */}
