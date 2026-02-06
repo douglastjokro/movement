@@ -604,7 +604,7 @@ const WorkoutTracker = () => {
       ...prev,
       [exerciseId]: {
         ...prev[exerciseId],
-        sets: [...prev[exerciseId].sets, { weight: exercises[exerciseId].lastWeight, reps: exercises[exerciseId].lastReps }]
+        sets: [...prev[exerciseId].sets, { weight: '', reps: '' }]
       }
     }));
   };
@@ -615,7 +615,7 @@ const WorkoutTracker = () => {
       [exerciseId]: {
         ...prev[exerciseId],
         sets: prev[exerciseId].sets.map((set, idx) => 
-          idx === setIndex ? { ...set, [field]: parseFloat(value) || 0 } : set
+          idx === setIndex ? { ...set, [field]: value === '' ? '' : parseFloat(value) || 0 } : set
         )
       }
     }));
@@ -625,7 +625,15 @@ const WorkoutTracker = () => {
     const updatedExercises = { ...exercises };
     
     Object.entries(currentWorkout).forEach(([exerciseId, data]) => {
-      const bestSet = data.sets.reduce((best, set) => 
+      // Convert empty strings to numbers and filter out invalid sets
+      const validSets = data.sets.map(set => ({
+        weight: parseFloat(set.weight) || 0,
+        reps: parseFloat(set.reps) || 0
+      })).filter(set => set.weight > 0 && set.reps > 0);
+      
+      if (validSets.length === 0) return; // Skip if no valid sets
+      
+      const bestSet = validSets.reduce((best, set) => 
         set.weight * set.reps > best.weight * best.reps ? set : best
       );
       
@@ -634,7 +642,7 @@ const WorkoutTracker = () => {
         ...updatedExercises[exerciseId],
         lastWeight: bestSet.weight,
         lastReps: bestSet.reps,
-        history: [...(updatedExercises[exerciseId].history || []), { date: selectedDate, sets: data.sets }]
+        history: [...(updatedExercises[exerciseId].history || []), { date: selectedDate, sets: validSets }]
       };
     });
 
@@ -1666,10 +1674,11 @@ const WorkoutTracker = () => {
                                   WEIGHT (KG)
                                 </label>
                                 <input
-                                  type="number"
+                                  type="text"
+                                  inputMode="decimal"
                                   value={set.weight}
                                   onChange={(e) => updateSet(exerciseId, idx, 'weight', e.target.value)}
-                                  step="0.5"
+                                  placeholder="0"
                                   style={{ width: '100%', fontSize: '14px', fontWeight: 200 }}
                                 />
                               </div>
@@ -1678,9 +1687,11 @@ const WorkoutTracker = () => {
                                   REPS
                                 </label>
                                 <input
-                                  type="number"
+                                  type="text"
+                                  inputMode="numeric"
                                   value={set.reps}
                                   onChange={(e) => updateSet(exerciseId, idx, 'reps', e.target.value)}
+                                  placeholder="0"
                                   style={{ width: '100%', fontSize: '14px', fontWeight: 200 }}
                                 />
                               </div>
@@ -1691,7 +1702,7 @@ const WorkoutTracker = () => {
                                 textAlign: 'right',
                                 whiteSpace: 'nowrap'
                               }}>
-                                {(set.weight * set.reps).toFixed(0)}kg
+                                {((parseFloat(set.weight) || 0) * (parseFloat(set.reps) || 0)).toFixed(0)}kg
                               </div>
                             </div>
                           ))}
@@ -1754,7 +1765,7 @@ const WorkoutTracker = () => {
                           onChange={(e) => {
                             if (e.target.value) {
                               const updated = {...currentWorkout};
-                              updated[e.target.value] = { sets: [{ weight: exercises[e.target.value].lastWeight, reps: exercises[e.target.value].lastReps }] };
+                              updated[e.target.value] = { sets: [{ weight: '', reps: '' }] };
                               setCurrentWorkout(updated);
                               e.target.value = '';
                             }
