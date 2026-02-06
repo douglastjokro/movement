@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move } from 'lucide-react';
 
