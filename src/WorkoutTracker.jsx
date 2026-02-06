@@ -2135,7 +2135,7 @@ const WorkoutTracker = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div>
                           <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
-                            LAST WEIGHT (LBS)
+                            LAST WEIGHT (KG)
                           </label>
                           <input
                             type="number"
@@ -2543,7 +2543,7 @@ const WorkoutTracker = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                       <div>
                         <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
-                          LAST WEIGHT (LBS)
+                          LAST WEIGHT (KG)
                         </label>
                         <input
                           type="number"
@@ -3037,7 +3037,7 @@ const WorkoutTracker = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div>
                           <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
-                            LAST WEIGHT (LBS)
+                            LAST WEIGHT (KG)
                           </label>
                           <input
                             type="number"
