@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move } from 'lucide-react';
 
@@ -16,14 +16,6 @@ const WorkoutTracker = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewingHistory, setViewingHistory] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
-  const editFormRef = useRef(null);
-  
-  // Scroll to form when editing
-  useEffect(() => {
-    if (editingExercise && editFormRef.current) {
-      editFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [editingExercise]);
   const [gapiLoaded, setGapiLoaded] = useState(false);
   const [gisLoaded, setGisLoaded] = useState(false);
   const [tokenClient, setTokenClient] = useState(null);
@@ -2063,44 +2055,220 @@ const WorkoutTracker = () => {
                 </div>
                 
                 {/* Add New Exercise Button */}
-                <button
-                  onClick={() => setEditingExercise({ 
-                    id: '', 
-                    name: '', 
-                    bodyPart: 'Chest', 
-                    lastWeight: 0, 
-                    lastReps: 0, 
-                    isNew: true 
-                  })}
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)',
-                    border: '2px dashed rgba(205, 160, 110, 0.2)',
-                    borderRadius: '20px',
-                    padding: '28px',
-                    color: '#cda06e',
-                    cursor: 'pointer',
-                    fontSize: '15px',
-                    fontWeight: 400,
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    transition: 'all 0.3s ease',
+                {editingExercise && editingExercise.isNew ? (
+                  // Add New Exercise Form (inline at bottom)
+                  <div style={{
+                    background: 'rgba(10, 6, 4, 0.6)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(205, 160, 110, 0.2)',
+                    borderRadius: '24px',
+                    padding: '32px',
                     marginTop: '8px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <Plus size={20} strokeWidth={2} />
-                  Add New Exercise
-                </button>
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                      <h3 style={{ fontSize: '20px', color: '#d4a574', fontWeight: 300 }}>
+                        Add New Exercise
+                      </h3>
+                      <button
+                        onClick={() => setEditingExercise(null)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#8b7566',
+                          cursor: 'pointer',
+                          padding: '8px'
+                        }}
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gap: '20px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          EXERCISE NAME
+                        </label>
+                        <input
+                          type="text"
+                          value={editingExercise.name}
+                          onChange={(e) => setEditingExercise({...editingExercise, name: e.target.value})}
+                          placeholder="e.g., Bench Press"
+                          style={{
+                            width: '100%',
+                            background: 'rgba(10, 6, 4, 0.4)',
+                            border: '1px solid rgba(205, 160, 110, 0.2)',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            color: '#f5f1ed',
+                            fontSize: '14px'
+                          }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          BODY PART
+                        </label>
+                        <select
+                          value={editingExercise.bodyPart}
+                          onChange={(e) => setEditingExercise({...editingExercise, bodyPart: e.target.value})}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(10, 6, 4, 0.4)',
+                            border: '1px solid rgba(205, 160, 110, 0.2)',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            color: '#f5f1ed',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="Chest">Chest</option>
+                          <option value="Back">Back</option>
+                          <option value="Legs">Legs</option>
+                          <option value="Shoulders">Shoulders</option>
+                          <option value="Arms">Arms</option>
+                          <option value="Core">Core</option>
+                        </select>
+                      </div>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                            LAST WEIGHT (LBS)
+                          </label>
+                          <input
+                            type="number"
+                            value={editingExercise.lastWeight}
+                            onChange={(e) => setEditingExercise({...editingExercise, lastWeight: parseFloat(e.target.value) || 0})}
+                            style={{
+                              width: '100%',
+                              background: 'rgba(10, 6, 4, 0.4)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '14px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px'
+                            }}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                            LAST REPS
+                          </label>
+                          <input
+                            type="number"
+                            value={editingExercise.lastReps}
+                            onChange={(e) => setEditingExercise({...editingExercise, lastReps: parseInt(e.target.value) || 0})}
+                            style={{
+                              width: '100%',
+                              background: 'rgba(10, 6, 4, 0.4)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '14px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px'
+                            }}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <button
+                          onClick={() => {
+                            const updated = {...exercises};
+                            
+                            // Generate ID for new exercises
+                            const exerciseId = editingExercise.id || editingExercise.name.toLowerCase().replace(/\s+/g, '-');
+                            
+                            // Save exercise with proper ID
+                            updated[exerciseId] = {
+                              ...editingExercise,
+                              id: exerciseId
+                            };
+                            
+                            setExercises(updated);
+                            setEditingExercise(null);
+                          }}
+                          style={{
+                            flex: 1,
+                            background: 'rgba(205, 160, 110, 0.2)',
+                            border: '1px solid rgba(205, 160, 110, 0.3)',
+                            padding: '14px',
+                            borderRadius: '16px',
+                            color: '#d4a574',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <Save size={16} />
+                          Save Exercise
+                        </button>
+                        
+                        <button
+                          onClick={() => setEditingExercise(null)}
+                          style={{
+                            background: 'rgba(184, 125, 94, 0.1)',
+                            border: '1px solid rgba(184, 125, 94, 0.2)',
+                            padding: '14px 24px',
+                            borderRadius: '16px',
+                            color: '#b87d5e',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setEditingExercise({ 
+                      id: '', 
+                      name: '', 
+                      bodyPart: 'Chest', 
+                      lastWeight: 0, 
+                      lastReps: 0, 
+                      isNew: true 
+                    })}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)',
+                      border: '2px dashed rgba(205, 160, 110, 0.2)',
+                      borderRadius: '20px',
+                      padding: '28px',
+                      color: '#cda06e',
+                      cursor: 'pointer',
+                      fontSize: '15px',
+                      fontWeight: 400,
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      transition: 'all 0.3s ease',
+                      marginTop: '8px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <Plus size={20} strokeWidth={2} />
+                    Add New Exercise
+                  </button>
+                )}
           </div>
         )}
 
@@ -2117,9 +2285,9 @@ const WorkoutTracker = () => {
               Manage Exercises
             </h2>
             
-            {editingExercise ? (
-              // Edit Form
-              <div ref={editFormRef} style={{
+            {editingExercise && !editingExercise.isNew ? (
+              // Edit Form (for existing exercises only)
+              <div style={{
                 background: 'rgba(10, 6, 4, 0.6)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(205, 160, 110, 0.2)',
@@ -2295,31 +2463,200 @@ const WorkoutTracker = () => {
               </div>
             ) : null}
             
-            {Object.keys(exercises).length === 0 && !editingExercise ? (
-              <div style={{
-                background: 'rgba(205, 160, 110, 0.05)',
-                border: '2px dashed rgba(205, 160, 110, 0.2)',
-                borderRadius: '24px',
-                padding: '60px 40px',
-                textAlign: 'center'
-              }}>
-                <Dumbbell size={48} strokeWidth={1} style={{ color: '#cda06e', opacity: 0.5, marginBottom: '24px' }} />
-                <h3 style={{ color: '#d4a574', fontSize: '24px', marginBottom: '16px', fontWeight: 300 }}>
-                  No Exercises Yet
-                </h3>
-                <p style={{ color: '#8b7566', fontSize: '15px', lineHeight: '1.8', marginBottom: '32px', maxWidth: '500px', margin: '0 auto 32px' }}>
-                  You haven't created any exercises yet.<br />
-                  Click below to add your first exercise and start building your workout library.
-                </p>
-                <button
-                  onClick={() => setEditingExercise({ 
-                    id: '', 
-                    name: '', 
-                    bodyPart: 'Chest', 
-                    lastWeight: 0, 
-                    lastReps: 0, 
-                    isNew: true 
-                  })}
+            {Object.keys(exercises).length === 0 ? (
+              editingExercise && editingExercise.isNew ? (
+                // Form for first exercise
+                <div style={{
+                  background: 'rgba(10, 6, 4, 0.6)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(205, 160, 110, 0.2)',
+                  borderRadius: '24px',
+                  padding: '32px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '20px', color: '#d4a574', fontWeight: 300 }}>
+                      Add Your First Exercise
+                    </h3>
+                    <button
+                      onClick={() => setEditingExercise(null)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#8b7566',
+                        cursor: 'pointer',
+                        padding: '8px'
+                      }}
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                        EXERCISE NAME
+                      </label>
+                      <input
+                        type="text"
+                        value={editingExercise.name}
+                        onChange={(e) => setEditingExercise({...editingExercise, name: e.target.value})}
+                        placeholder="e.g., Bench Press"
+                        style={{
+                          width: '100%',
+                          background: 'rgba(10, 6, 4, 0.4)',
+                          border: '1px solid rgba(205, 160, 110, 0.2)',
+                          padding: '14px',
+                          borderRadius: '12px',
+                          color: '#f5f1ed',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                        BODY PART
+                      </label>
+                      <select
+                        value={editingExercise.bodyPart}
+                        onChange={(e) => setEditingExercise({...editingExercise, bodyPart: e.target.value})}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(10, 6, 4, 0.4)',
+                          border: '1px solid rgba(205, 160, 110, 0.2)',
+                          padding: '14px',
+                          borderRadius: '12px',
+                          color: '#f5f1ed',
+                          fontSize: '14px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="Chest">Chest</option>
+                        <option value="Back">Back</option>
+                        <option value="Legs">Legs</option>
+                        <option value="Shoulders">Shoulders</option>
+                        <option value="Arms">Arms</option>
+                        <option value="Core">Core</option>
+                      </select>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          LAST WEIGHT (LBS)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingExercise.lastWeight}
+                          onChange={(e) => setEditingExercise({...editingExercise, lastWeight: parseFloat(e.target.value) || 0})}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(10, 6, 4, 0.4)',
+                            border: '1px solid rgba(205, 160, 110, 0.2)',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            color: '#f5f1ed',
+                            fontSize: '14px'
+                          }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          LAST REPS
+                        </label>
+                        <input
+                          type="number"
+                          value={editingExercise.lastReps}
+                          onChange={(e) => setEditingExercise({...editingExercise, lastReps: parseInt(e.target.value) || 0})}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(10, 6, 4, 0.4)',
+                            border: '1px solid rgba(205, 160, 110, 0.2)',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            color: '#f5f1ed',
+                            fontSize: '14px'
+                          }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                      <button
+                        onClick={() => {
+                          const updated = {...exercises};
+                          const exerciseId = editingExercise.name.toLowerCase().replace(/\s+/g, '-');
+                          updated[exerciseId] = {
+                            ...editingExercise,
+                            id: exerciseId
+                          };
+                          setExercises(updated);
+                          setEditingExercise(null);
+                        }}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(205, 160, 110, 0.2)',
+                          border: '1px solid rgba(205, 160, 110, 0.3)',
+                          padding: '14px',
+                          borderRadius: '16px',
+                          color: '#d4a574',
+                          fontWeight: 400,
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <Save size={16} />
+                        Save Exercise
+                      </button>
+                      
+                      <button
+                        onClick={() => setEditingExercise(null)}
+                        style={{
+                          background: 'rgba(184, 125, 94, 0.1)',
+                          border: '1px solid rgba(184, 125, 94, 0.2)',
+                          padding: '14px 24px',
+                          borderRadius: '16px',
+                          color: '#b87d5e',
+                          fontWeight: 400,
+                          fontSize: '14px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  background: 'rgba(205, 160, 110, 0.05)',
+                  border: '2px dashed rgba(205, 160, 110, 0.2)',
+                  borderRadius: '24px',
+                  padding: '60px 40px',
+                  textAlign: 'center'
+                }}>
+                  <Dumbbell size={48} strokeWidth={1} style={{ color: '#cda06e', opacity: 0.5, marginBottom: '24px' }} />
+                  <h3 style={{ color: '#d4a574', fontSize: '24px', marginBottom: '16px', fontWeight: 300 }}>
+                    No Exercises Yet
+                  </h3>
+                  <p style={{ color: '#8b7566', fontSize: '15px', lineHeight: '1.8', marginBottom: '32px', maxWidth: '500px', margin: '0 auto 32px' }}>
+                    You haven't created any exercises yet.<br />
+                    Click below to add your first exercise and start building your workout library.
+                  </p>
+                  <button
+                    onClick={() => setEditingExercise({ 
+                      id: '', 
+                      name: '', 
+                      bodyPart: 'Chest', 
+                      lastWeight: 0, 
+                      lastReps: 0, 
+                      isNew: true 
+                    })}
                   style={{
                     background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)',
                     border: '1px solid rgba(205, 160, 110, 0.3)',
@@ -2451,44 +2788,220 @@ const WorkoutTracker = () => {
                 </div>
                 
                 {/* Add New Exercise Button */}
-                <button
-                  onClick={() => setEditingExercise({ 
-                    id: '', 
-                    name: '', 
-                    bodyPart: 'Chest', 
-                    lastWeight: 0, 
-                    lastReps: 0, 
-                    isNew: true 
-                  })}
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)',
-                    border: '2px dashed rgba(205, 160, 110, 0.2)',
-                    borderRadius: '20px',
-                    padding: '28px',
-                    color: '#cda06e',
-                    cursor: 'pointer',
-                    fontSize: '15px',
-                    fontWeight: 400,
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    transition: 'all 0.3s ease',
+                {editingExercise && editingExercise.isNew ? (
+                  // Add New Exercise Form (inline at bottom)
+                  <div style={{
+                    background: 'rgba(10, 6, 4, 0.6)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(205, 160, 110, 0.2)',
+                    borderRadius: '24px',
+                    padding: '32px',
                     marginTop: '8px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <Plus size={20} strokeWidth={2} />
-                  Add New Exercise
-                </button>
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                      <h3 style={{ fontSize: '20px', color: '#d4a574', fontWeight: 300 }}>
+                        Add New Exercise
+                      </h3>
+                      <button
+                        onClick={() => setEditingExercise(null)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#8b7566',
+                          cursor: 'pointer',
+                          padding: '8px'
+                        }}
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gap: '20px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          EXERCISE NAME
+                        </label>
+                        <input
+                          type="text"
+                          value={editingExercise.name}
+                          onChange={(e) => setEditingExercise({...editingExercise, name: e.target.value})}
+                          placeholder="e.g., Bench Press"
+                          style={{
+                            width: '100%',
+                            background: 'rgba(10, 6, 4, 0.4)',
+                            border: '1px solid rgba(205, 160, 110, 0.2)',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            color: '#f5f1ed',
+                            fontSize: '14px'
+                          }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          BODY PART
+                        </label>
+                        <select
+                          value={editingExercise.bodyPart}
+                          onChange={(e) => setEditingExercise({...editingExercise, bodyPart: e.target.value})}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(10, 6, 4, 0.4)',
+                            border: '1px solid rgba(205, 160, 110, 0.2)',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            color: '#f5f1ed',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="Chest">Chest</option>
+                          <option value="Back">Back</option>
+                          <option value="Legs">Legs</option>
+                          <option value="Shoulders">Shoulders</option>
+                          <option value="Arms">Arms</option>
+                          <option value="Core">Core</option>
+                        </select>
+                      </div>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                            LAST WEIGHT (LBS)
+                          </label>
+                          <input
+                            type="number"
+                            value={editingExercise.lastWeight}
+                            onChange={(e) => setEditingExercise({...editingExercise, lastWeight: parseFloat(e.target.value) || 0})}
+                            style={{
+                              width: '100%',
+                              background: 'rgba(10, 6, 4, 0.4)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '14px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px'
+                            }}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                            LAST REPS
+                          </label>
+                          <input
+                            type="number"
+                            value={editingExercise.lastReps}
+                            onChange={(e) => setEditingExercise({...editingExercise, lastReps: parseInt(e.target.value) || 0})}
+                            style={{
+                              width: '100%',
+                              background: 'rgba(10, 6, 4, 0.4)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '14px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px'
+                            }}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <button
+                          onClick={() => {
+                            const updated = {...exercises};
+                            
+                            // Generate ID for new exercises
+                            const exerciseId = editingExercise.id || editingExercise.name.toLowerCase().replace(/\s+/g, '-');
+                            
+                            // Save exercise with proper ID
+                            updated[exerciseId] = {
+                              ...editingExercise,
+                              id: exerciseId
+                            };
+                            
+                            setExercises(updated);
+                            setEditingExercise(null);
+                          }}
+                          style={{
+                            flex: 1,
+                            background: 'rgba(205, 160, 110, 0.2)',
+                            border: '1px solid rgba(205, 160, 110, 0.3)',
+                            padding: '14px',
+                            borderRadius: '16px',
+                            color: '#d4a574',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <Save size={16} />
+                          Save Exercise
+                        </button>
+                        
+                        <button
+                          onClick={() => setEditingExercise(null)}
+                          style={{
+                            background: 'rgba(184, 125, 94, 0.1)',
+                            border: '1px solid rgba(184, 125, 94, 0.2)',
+                            padding: '14px 24px',
+                            borderRadius: '16px',
+                            color: '#b87d5e',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setEditingExercise({ 
+                      id: '', 
+                      name: '', 
+                      bodyPart: 'Chest', 
+                      lastWeight: 0, 
+                      lastReps: 0, 
+                      isNew: true 
+                    })}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)',
+                      border: '2px dashed rgba(205, 160, 110, 0.2)',
+                      borderRadius: '20px',
+                      padding: '28px',
+                      color: '#cda06e',
+                      cursor: 'pointer',
+                      fontSize: '15px',
+                      fontWeight: 400,
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      transition: 'all 0.3s ease',
+                      marginTop: '8px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <Plus size={20} strokeWidth={2} />
+                    Add New Exercise
+                  </button>
+                )}
               </>
             )}
           </div>
