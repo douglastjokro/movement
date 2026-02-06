@@ -508,7 +508,8 @@ const WorkoutTracker = () => {
     return order.filter(bodyPart => bodyParts[bodyPart]).map(bodyPart => {
       const exs = bodyParts[bodyPart];
       const avgProgress = exs.reduce((acc, ex) => {
-        if (ex.history.length >= 2) {
+        // Check if exercise has history and history has entries with sets
+        if (ex.history && ex.history.length >= 2 && ex.history[0].sets && ex.history[0].sets.length > 0) {
           // Get best set from first and last workout
           const firstBest = ex.history[0].sets.reduce((best, set) => 
             set.weight * set.reps > best.weight * best.reps ? set : best
@@ -521,7 +522,7 @@ const WorkoutTracker = () => {
         return acc;
       }, 0) / exs.length;
 
-      const totalVolume = exs.reduce((acc, ex) => acc + ex.lastWeight * ex.lastReps, 0);
+      const totalVolume = exs.reduce((acc, ex) => acc + (ex.lastWeight || 0) * (ex.lastReps || 0), 0);
 
       return {
         bodyPart,
@@ -633,7 +634,7 @@ const WorkoutTracker = () => {
         ...updatedExercises[exerciseId],
         lastWeight: bestSet.weight,
         lastReps: bestSet.reps,
-        history: [...updatedExercises[exerciseId].history, { date: selectedDate, sets: data.sets }]
+        history: [...(updatedExercises[exerciseId].history || []), { date: selectedDate, sets: data.sets }]
       };
     });
 
@@ -648,11 +649,11 @@ const WorkoutTracker = () => {
     const updatedExercises = { ...exercises };
     updatedExercises[exerciseId] = {
       ...updatedExercises[exerciseId],
-      history: updatedExercises[exerciseId].history.filter(entry => entry.date !== dateToDelete)
+      history: (updatedExercises[exerciseId].history || []).filter(entry => entry.date !== dateToDelete)
     };
     
     // Update lastWeight and lastReps based on most recent remaining entry
-    if (updatedExercises[exerciseId].history.length > 0) {
+    if (updatedExercises[exerciseId].history && updatedExercises[exerciseId].history.length > 0) {
       const lastEntry = updatedExercises[exerciseId].history[updatedExercises[exerciseId].history.length - 1];
       const bestSet = lastEntry.sets.reduce((best, set) => 
         set.weight * set.reps > best.weight * best.reps ? set : best
@@ -668,7 +669,7 @@ const WorkoutTracker = () => {
     const updatedExercises = { ...exercises };
     updatedExercises[exerciseId] = {
       ...updatedExercises[exerciseId],
-      history: updatedExercises[exerciseId].history.map(entry => {
+      history: (updatedExercises[exerciseId].history || []).map(entry => {
         if (entry.date === dateToUpdate) {
           const newSets = [...entry.sets];
           newSets[setIndex] = { weight: newWeight, reps: newReps };
@@ -679,13 +680,15 @@ const WorkoutTracker = () => {
     };
     
     // Update lastWeight and lastReps if this is the most recent entry
-    const lastEntry = updatedExercises[exerciseId].history[updatedExercises[exerciseId].history.length - 1];
-    if (lastEntry.date === dateToUpdate) {
-      const bestSet = lastEntry.sets.reduce((best, set) => 
-        set.weight * set.reps > best.weight * best.reps ? set : best
-      );
-      updatedExercises[exerciseId].lastWeight = bestSet.weight;
-      updatedExercises[exerciseId].lastReps = bestSet.reps;
+    if (updatedExercises[exerciseId].history && updatedExercises[exerciseId].history.length > 0) {
+      const lastEntry = updatedExercises[exerciseId].history[updatedExercises[exerciseId].history.length - 1];
+      if (lastEntry.date === dateToUpdate) {
+        const bestSet = lastEntry.sets.reduce((best, set) => 
+          set.weight * set.reps > best.weight * best.reps ? set : best
+        );
+        updatedExercises[exerciseId].lastWeight = bestSet.weight;
+        updatedExercises[exerciseId].lastReps = bestSet.reps;
+      }
     }
     
     setExercises(updatedExercises);
@@ -1399,7 +1402,8 @@ const WorkoutTracker = () => {
                             </div>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {exercise.history.slice().reverse().map((entry, idx) => (
+                            {exercise.history && exercise.history.length > 0 ? (
+                              exercise.history.slice().reverse().map((entry, idx) => (
                               <div key={idx} style={{
                                 background: 'rgba(205, 160, 110, 0.02)',
                                 padding: '14px 16px',
@@ -1450,7 +1454,17 @@ const WorkoutTracker = () => {
                                   </button>
                                 </div>
                               </div>
-                            ))}
+                            ))
+                            ) : (
+                              <div style={{
+                                textAlign: 'center',
+                                padding: '30px',
+                                color: '#8b7566',
+                                fontSize: '13px'
+                              }}>
+                                No workout history yet
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1593,7 +1607,7 @@ const WorkoutTracker = () => {
                               {exercise.name}
                             </h3>
                             <div style={{ fontSize: '12px', color: '#6b5d52', fontWeight: 200 }}>
-                              {exercise.history.length > 0 ? (
+                              {exercise.history && exercise.history.length > 0 ? (
                                 <>
                                   Last workout ({new Date(exercise.history[exercise.history.length - 1].date).toLocaleDateString()}):
                                   <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
