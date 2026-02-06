@@ -568,7 +568,13 @@ const WorkoutTracker = () => {
   };
 
   const startWorkout = (dayType) => {
+    console.log('🏋️ Starting workout:', dayType);
+    console.log('📋 Programs:', programs);
+    console.log('💪 Exercises:', exercises);
+    
     const exerciseIds = programs[dayType] || [];
+    console.log('🎯 Exercise IDs for', dayType, ':', exerciseIds);
+    
     const workout = {};
     
     exerciseIds.forEach(id => {
@@ -577,8 +583,14 @@ const WorkoutTracker = () => {
         workout[id] = {
           sets: [{ weight: exercises[id].lastWeight, reps: exercises[id].lastReps }]
         };
+        console.log('✅ Added:', exercises[id].name);
+      } else {
+        console.warn('⚠️ Exercise not found:', id);
       }
     });
+    
+    console.log('🏋️ Final workout:', workout);
+    console.log('📊 Workout has', Object.keys(workout).length, 'exercises');
     
     setCurrentWorkout(workout);
   };
@@ -1514,7 +1526,44 @@ const WorkoutTracker = () => {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  {Object.entries(currentWorkout).map(([exerciseId, data]) => {
+                  {Object.keys(currentWorkout).length === 0 ? (
+                    <div style={{
+                      background: 'rgba(205, 160, 110, 0.05)',
+                      border: '2px dashed rgba(205, 160, 110, 0.2)',
+                      borderRadius: '24px',
+                      padding: '48px',
+                      textAlign: 'center'
+                    }}>
+                      <h3 style={{ color: '#d4a574', fontSize: '20px', marginBottom: '16px', fontWeight: 300 }}>
+                        No Exercises in This Program
+                      </h3>
+                      <p style={{ color: '#8b7566', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+                        This workout program doesn't have any exercises yet.
+                        <br />
+                        Go to the Programs tab to add exercises to {selectedDay}.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setActiveTab('programs');
+                          setCurrentWorkout({});
+                        }}
+                        style={{
+                          background: 'rgba(205, 160, 110, 0.15)',
+                          border: '1px solid rgba(205, 160, 110, 0.3)',
+                          padding: '12px 24px',
+                          borderRadius: '16px',
+                          color: '#cda06e',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: 400
+                        }}
+                      >
+                        Go to Programs →
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {Object.entries(currentWorkout).map(([exerciseId, data]) => {
                     const exercise = exercises[exerciseId];
                     if (!exercise) return null; // Skip if exercise doesn't exist
                     
@@ -1660,9 +1709,10 @@ const WorkoutTracker = () => {
                       </div>
                     );
                   })}
-                </div>
+                      }
+                    </div>
                   
-                  {/* Add Exercise On-The-Fly */}
+                    {/* Add Exercise On-The-Fly */}
                   <div style={{
                     background: 'rgba(10, 6, 4, 0.4)',
                     backdropFilter: 'blur(20px)',
@@ -1851,6 +1901,7 @@ const WorkoutTracker = () => {
                         </button>
                       </div>
                     </div>
+                    </>
                   </div>
               </div>
             )}
