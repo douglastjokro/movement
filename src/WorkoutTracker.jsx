@@ -130,6 +130,7 @@ const WorkoutTracker = () => {
   ]);
 
   const [currentWorkout, setCurrentWorkout] = useState({});
+  const [tempExercise, setTempExercise] = useState({ name: '', bodyPart: 'Chest', weight: 0, reps: 0 });
 
   // Load Google API on component mount
   useEffect(() => {
@@ -808,7 +809,7 @@ const WorkoutTracker = () => {
       `}</style>
 
       {/* Header */}
-      <div style={{
+      <div className="header-container" style={{
         background: 'rgba(10, 6, 4, 0.6)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(205, 160, 110, 0.1)',
@@ -928,7 +929,7 @@ const WorkoutTracker = () => {
       </div>
 
       {/* Navigation */}
-      <div style={{
+      <div className="nav-tabs-container" style={{
         display: 'flex',
         gap: '0',
         padding: '0 40px',
@@ -1257,7 +1258,7 @@ const WorkoutTracker = () => {
                 </div>
 
                 {!viewingHistory ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                  <div className="workout-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
                     {Object.keys(programs).map(day => {
                       const workoutIcon = getWorkoutIcon(day);
                       const isImage = isWorkoutIconImage(day);

@@ -39,3 +39,52 @@ button {
 #root {
   min-height: 100vh;
 }
+/* Mobile Navigation Styles */
+@media (max-width: 768px) {
+  /* Header - make stack */
+  .header-container {
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 20px !important;
+  }
+  
+  .header-container h1 {
+    font-size: 28px !important;
+  }
+  
+  /* Navigation tabs */
+  .nav-tabs-container {
+    padding: 0 20px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tab-btn {
+    font-size: 13px !important;
+    padding: 14px 20px !important;
+    white-space: nowrap;
+  }
+  
+  /* Workout cards grid */
+  .workout-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  
+  /* Content padding */
+  .workout-container {
+    padding: 30px 20px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-container h1 {
+    font-size: 24px !important;
+  }
+  
+  .tab-btn {
+    font-size: 12px !important;
+    padding: 12px 16px !important;
+  }
+}
+
