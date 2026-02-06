@@ -1904,6 +1904,7 @@ const WorkoutTracker = () => {
                 )}
                 </div>
               </div>
+            )}
           </div>
         )}
 
