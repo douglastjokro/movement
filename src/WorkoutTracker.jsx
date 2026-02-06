@@ -35,16 +35,20 @@ const WorkoutCalendar = ({ workoutHistory }) => {
     const { daysInMonth, year, month } = getDaysInMonth(selectedMonth);
     const workoutDates = getWorkoutDatesInMonth();
     
+    // Training start date: December 10, 2025
+    const trainingStartDate = new Date('2025-12-10');
+    
     let expectedCount = 0;
     let completedCount = workoutDates.length;
     
-    // Count expected workout days in this month
+    // Count expected workout days in this month (only after training start date)
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const dayOfWeek = date.getDay();
       const isPastDate = date <= new Date();
+      const isAfterStartDate = date >= trainingStartDate;
       
-      if (expectedDays.includes(dayOfWeek) && isPastDate) {
+      if (expectedDays.includes(dayOfWeek) && isPastDate && isAfterStartDate) {
         expectedCount++;
       }
     }
@@ -55,18 +59,38 @@ const WorkoutCalendar = ({ workoutHistory }) => {
   };
   
   const getAllTimeStats = () => {
-    const totalCompleted = workoutHistory.length;
+    // Training start date: December 10, 2025 (earliest possible)
+    const trainingStartDate = new Date('2025-12-10');
     
-    // Calculate total expected workouts from first workout to today
-    if (workoutHistory.length === 0) {
-      return { totalExpected: 0, totalCompleted: 0, totalMissed: 0 };
+    // Filter workouts to only include those on or after start date
+    const validWorkouts = workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
+    const totalCompleted = validWorkouts.length;
+    
+    // If no workouts yet, start counting from training start date
+    if (totalCompleted === 0) {
+      const today = new Date();
+      let totalExpected = 0;
+      const currentDate = new Date(trainingStartDate);
+      
+      while (currentDate <= today) {
+        const dayOfWeek = currentDate.getDay();
+        if (expectedDays.includes(dayOfWeek)) {
+          totalExpected++;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      return { totalExpected, totalCompleted: 0, totalMissed: totalExpected };
     }
     
-    const firstWorkoutDate = new Date(Math.min(...workoutHistory.map(w => new Date(w.date))));
+    // Start counting from first actual workout (not before training start date)
+    const firstWorkoutDate = new Date(Math.min(...validWorkouts.map(w => new Date(w.date))));
+    const actualStartDate = firstWorkoutDate < trainingStartDate ? trainingStartDate : firstWorkoutDate;
+    
     const today = new Date();
     
     let totalExpected = 0;
-    const currentDate = new Date(firstWorkoutDate);
+    const currentDate = new Date(actualStartDate);
     
     while (currentDate <= today) {
       const dayOfWeek = currentDate.getDay();
@@ -89,6 +113,9 @@ const WorkoutCalendar = ({ workoutHistory }) => {
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
     const todayDate = isCurrentMonth ? today.getDate() : -1;
     
+    // Training start date: December 10, 2025
+    const trainingStartDate = new Date('2025-12-10');
+    
     const days = [];
     
     // Empty cells for days before month starts
@@ -104,7 +131,15 @@ const WorkoutCalendar = ({ workoutHistory }) => {
       const hasWorkout = workoutDates.includes(day);
       const isPast = date < today || (isCurrentMonth && day < todayDate);
       const isToday = isCurrentMonth && day === todayDate;
-      const isMissed = isExpectedDay && isPast && !hasWorkout && !isToday;
+      
+      // Only mark as missed if:
+      // 1. It's an expected day
+      // 2. It's in the past
+      // 3. No workout was completed
+      // 4. It's not today
+      // 5. It's on or after training start date
+      const isAfterStartDate = date >= trainingStartDate;
+      const isMissed = isExpectedDay && isPast && !hasWorkout && !isToday && isAfterStartDate;
       
       days.push(
         <div
@@ -176,31 +211,54 @@ const WorkoutCalendar = ({ workoutHistory }) => {
         Workout Tracker
       </h3>
       
-      {/* Month Selector */}
+      {/* Month and Year Selector */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '20px'
       }}>
-        <button
-          onClick={() => changeMonth(-1)}
-          style={{
-            background: 'rgba(205, 160, 110, 0.1)',
-            border: '1px solid rgba(205, 160, 110, 0.2)',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            color: '#d4a574',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '13px',
-            fontWeight: 300
-          }}
-        >
-          <ChevronLeft size={16} />
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => changeMonth(-1)}
+            style={{
+              background: 'rgba(205, 160, 110, 0.1)',
+              border: '1px solid rgba(205, 160, 110, 0.2)',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              color: '#d4a574',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '13px',
+              fontWeight: 300
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          
+          <button
+            onClick={() => {
+              const newDate = new Date(selectedMonth);
+              newDate.setFullYear(newDate.getFullYear() - 1);
+              setSelectedMonth(newDate);
+            }}
+            style={{
+              background: 'rgba(205, 160, 110, 0.05)',
+              border: '1px solid rgba(205, 160, 110, 0.15)',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              color: '#8b7566',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 300,
+              letterSpacing: '0.5px'
+            }}
+          >
+            ← Year
+          </button>
+        </div>
         
         <div style={{
           fontSize: '16px',
@@ -211,24 +269,47 @@ const WorkoutCalendar = ({ workoutHistory }) => {
           {selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </div>
         
-        <button
-          onClick={() => changeMonth(1)}
-          style={{
-            background: 'rgba(205, 160, 110, 0.1)',
-            border: '1px solid rgba(205, 160, 110, 0.2)',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            color: '#d4a574',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '13px',
-            fontWeight: 300
-          }}
-        >
-          <ChevronRight size={16} />
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => {
+              const newDate = new Date(selectedMonth);
+              newDate.setFullYear(newDate.getFullYear() + 1);
+              setSelectedMonth(newDate);
+            }}
+            style={{
+              background: 'rgba(205, 160, 110, 0.05)',
+              border: '1px solid rgba(205, 160, 110, 0.15)',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              color: '#8b7566',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 300,
+              letterSpacing: '0.5px'
+            }}
+          >
+            Year →
+          </button>
+          
+          <button
+            onClick={() => changeMonth(1)}
+            style={{
+              background: 'rgba(205, 160, 110, 0.1)',
+              border: '1px solid rgba(205, 160, 110, 0.2)',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              color: '#d4a574',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '13px',
+              fontWeight: 300
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
       </div>
       
       {/* Day labels */}
@@ -624,12 +705,31 @@ const WorkoutTracker = () => {
     if (savedData && !gDriveConnected) {
       try {
         const data = JSON.parse(savedData);
-        if (data.exercises) setExercises(data.exercises);
+        
+        // Filter exercises to remove history before December 10, 2025
+        const trainingStartDate = new Date('2025-12-10');
+        if (data.exercises) {
+          const filteredExercises = {};
+          Object.entries(data.exercises).forEach(([key, exercise]) => {
+            filteredExercises[key] = {
+              ...exercise,
+              history: exercise.history 
+                ? exercise.history.filter(entry => new Date(entry.date) >= trainingStartDate)
+                : []
+            };
+          });
+          setExercises(filteredExercises);
+        }
+        
         if (data.programs && Object.keys(data.programs).length > 0) {
           // Only update programs if there's saved data
           setPrograms(data.programs);
         }
-        if (data.workoutHistory) setWorkoutHistory(data.workoutHistory);
+        if (data.workoutHistory) {
+          // Filter out workouts before December 10, 2025
+          const filteredHistory = data.workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
+          setWorkoutHistory(filteredHistory);
+        }
       } catch (error) {
         console.error('Error loading from localStorage:', error);
       }
@@ -852,10 +952,28 @@ const WorkoutTracker = () => {
 
         const data = await contentResponse.json();
         
-        if (data.exercises) setExercises(data.exercises);
+        // Filter exercises to remove history before December 10, 2025
+        const trainingStartDate = new Date('2025-12-10');
+        if (data.exercises) {
+          const filteredExercises = {};
+          Object.entries(data.exercises).forEach(([key, exercise]) => {
+            filteredExercises[key] = {
+              ...exercise,
+              history: exercise.history 
+                ? exercise.history.filter(entry => new Date(entry.date) >= trainingStartDate)
+                : []
+            };
+          });
+          setExercises(filteredExercises);
+        }
+        
         if (data.programs) setPrograms(data.programs);
         if (data.currentWorkout) setCurrentWorkout(data.currentWorkout);
-        if (data.workoutHistory) setWorkoutHistory(data.workoutHistory);
+        if (data.workoutHistory) {
+          // Filter out workouts before December 10, 2025
+          const filteredHistory = data.workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
+          setWorkoutHistory(filteredHistory);
+        }
         
         console.log('✅ Data loaded from Google Drive!');
       } else {
@@ -1038,6 +1156,7 @@ const WorkoutTracker = () => {
 
   const saveWorkout = () => {
     const updatedExercises = { ...exercises };
+    let completedExercises = 0; // Track how many exercises actually had valid sets
     
     Object.entries(currentWorkout).forEach(([exerciseId, data]) => {
       // Convert empty strings to numbers and filter out invalid sets
@@ -1047,6 +1166,8 @@ const WorkoutTracker = () => {
       })).filter(set => set.weight > 0 && set.reps > 0);
       
       if (validSets.length === 0) return; // Skip if no valid sets
+      
+      completedExercises++; // Increment only if exercise has valid sets
       
       const bestSet = validSets.reduce((best, set) => 
         set.weight * set.reps > best.weight * best.reps ? set : best
@@ -1062,7 +1183,12 @@ const WorkoutTracker = () => {
     });
 
     setExercises(updatedExercises);
-    setWorkoutHistory([...workoutHistory, { date: selectedDate, type: selectedDay, exercisesCompleted: Object.keys(currentWorkout).length }]);
+    
+    // Only add to workoutHistory if at least one exercise was completed
+    if (completedExercises > 0) {
+      setWorkoutHistory([...workoutHistory, { date: selectedDate, type: selectedDay, exercisesCompleted: completedExercises }]);
+    }
+    
     setCurrentWorkout({});
     setSelectedDate(new Date().toISOString().split('T')[0]);
     setActiveTab('dashboard');
