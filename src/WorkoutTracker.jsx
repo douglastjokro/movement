@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Grid3x3, Footprints, ArrowUp, ArrowDown, Move } from 'lucide-react';
+import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move } from 'lucide-react';
 
 const WorkoutTracker = () => {
   // Google Drive Configuration
@@ -923,7 +923,7 @@ const WorkoutTracker = () => {
         {[
           { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
           { key: 'workout', label: 'Workout', icon: Dumbbell },
-          { key: 'programs', label: 'Programs', icon: Grid3x3 },
+          { key: 'programs', label: 'Programs', icon: Layout },
           { key: 'manage', label: 'Manage', icon: Target }
         ].map(({ key, label, icon: Icon }) => (
           <button
