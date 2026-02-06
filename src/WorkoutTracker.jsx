@@ -208,9 +208,10 @@ const WorkoutTracker = () => {
     localStorage.setItem('workout-data', JSON.stringify({
       exercises,
       programs,
-      currentWorkout
+      currentWorkout,
+      workoutHistory
     }));
-  }, [exercises, programs, currentWorkout]);
+  }, [exercises, programs, currentWorkout, workoutHistory]);
 
   // Load from localStorage on mount (if not connected to Drive)
   useEffect(() => {
@@ -223,6 +224,7 @@ const WorkoutTracker = () => {
           // Only update programs if there's saved data
           setPrograms(data.programs);
         }
+        if (data.workoutHistory) setWorkoutHistory(data.workoutHistory);
       } catch (error) {
         console.error('Error loading from localStorage:', error);
       }
@@ -275,6 +277,7 @@ const WorkoutTracker = () => {
       exercises,
       programs,
       currentWorkout,
+      workoutHistory,
       lastUpdated: new Date().toISOString()
     };
 
@@ -447,6 +450,7 @@ const WorkoutTracker = () => {
         if (data.exercises) setExercises(data.exercises);
         if (data.programs) setPrograms(data.programs);
         if (data.currentWorkout) setCurrentWorkout(data.currentWorkout);
+        if (data.workoutHistory) setWorkoutHistory(data.workoutHistory);
         
         console.log('✅ Data loaded from Google Drive!');
       } else {
@@ -610,12 +614,18 @@ const WorkoutTracker = () => {
   };
 
   const updateSet = (exerciseId, setIndex, field, value) => {
+    // Keep raw string value to allow typing decimals like "80."
+    // Only validate that it's a valid number format
+    const isValidInput = value === '' || value === '.' || /^-?\d*\.?\d*$/.test(value);
+    
+    if (!isValidInput) return; // Ignore invalid input
+    
     setCurrentWorkout(prev => ({
       ...prev,
       [exerciseId]: {
         ...prev[exerciseId],
         sets: prev[exerciseId].sets.map((set, idx) => 
-          idx === setIndex ? { ...set, [field]: value === '' ? '' : parseFloat(value) || 0 } : set
+          idx === setIndex ? { ...set, [field]: value } : set
         )
       }
     }));
