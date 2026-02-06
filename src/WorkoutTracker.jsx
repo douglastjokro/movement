@@ -16,6 +16,14 @@ const WorkoutTracker = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewingHistory, setViewingHistory] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
+  const editFormRef = useRef(null);
+  
+  // Scroll to form when editing
+  useEffect(() => {
+    if (editingExercise && editFormRef.current) {
+      editFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [editingExercise]);
   const [gapiLoaded, setGapiLoaded] = useState(false);
   const [gisLoaded, setGisLoaded] = useState(false);
   const [tokenClient, setTokenClient] = useState(null);
@@ -2111,7 +2119,7 @@ const WorkoutTracker = () => {
             
             {editingExercise ? (
               // Edit Form
-              <div style={{
+              <div ref={editFormRef} style={{
                 background: 'rgba(10, 6, 4, 0.6)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(205, 160, 110, 0.2)',
@@ -2121,7 +2129,7 @@ const WorkoutTracker = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h3 style={{ fontSize: '20px', color: '#d4a574', fontWeight: 300 }}>
-                    Edit Exercise
+                    {editingExercise.isNew ? 'Add New Exercise' : 'Edit Exercise'}
                   </h3>
                   <button
                     onClick={() => setEditingExercise(null)}
@@ -2234,7 +2242,16 @@ const WorkoutTracker = () => {
                     <button
                       onClick={() => {
                         const updated = {...exercises};
-                        updated[editingExercise.id] = editingExercise;
+                        
+                        // Generate ID for new exercises
+                        const exerciseId = editingExercise.id || editingExercise.name.toLowerCase().replace(/\s+/g, '-');
+                        
+                        // Save exercise with proper ID
+                        updated[exerciseId] = {
+                          ...editingExercise,
+                          id: exerciseId
+                        };
+                        
                         setExercises(updated);
                         setEditingExercise(null);
                       }}
