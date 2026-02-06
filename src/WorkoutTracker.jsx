@@ -2285,7 +2285,7 @@ const WorkoutTracker = () => {
               Manage Exercises
             </h2>
             
-            {editingExercise && !editingExercise.isNew ? (
+            {false ? (
               // Edit Form (for existing exercises only)
               <div style={{
                 background: 'rgba(10, 6, 4, 0.6)',
@@ -2688,7 +2688,175 @@ const WorkoutTracker = () => {
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {Object.values(exercises).map(exercise => (
-                <div key={exercise.id} style={{
+                    editingExercise && editingExercise.id === exercise.id && !editingExercise.isNew ? (
+                      // Inline Edit Form
+                      <div key={exercise.id} style={{
+                        background: 'rgba(10, 6, 4, 0.6)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(205, 160, 110, 0.2)',
+                        borderRadius: '24px',
+                        padding: '28px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                          <h4 style={{ fontSize: '18px', color: '#d4a574', fontWeight: 300, margin: 0 }}>
+                            Edit Exercise
+                          </h4>
+                          <button
+                            onClick={() => setEditingExercise(null)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#8b7566',
+                              cursor: 'pointer',
+                              padding: '8px'
+                            }}
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gap: '16px' }}>
+                          <div>
+                            <label style={{ fontSize: '10px', color: '#8b7566', letterSpacing: '1px', marginBottom: '6px', display: 'block' }}>
+                              EXERCISE NAME
+                            </label>
+                            <input
+                              type="text"
+                              value={editingExercise.name}
+                              onChange={(e) => setEditingExercise({...editingExercise, name: e.target.value})}
+                              style={{
+                                width: '100%',
+                                background: 'rgba(10, 6, 4, 0.4)',
+                                border: '1px solid rgba(205, 160, 110, 0.2)',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                color: '#f5f1ed',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label style={{ fontSize: '10px', color: '#8b7566', letterSpacing: '1px', marginBottom: '6px', display: 'block' }}>
+                              BODY PART
+                            </label>
+                            <select
+                              value={editingExercise.bodyPart}
+                              onChange={(e) => setEditingExercise({...editingExercise, bodyPart: e.target.value})}
+                              style={{
+                                width: '100%',
+                                background: 'rgba(10, 6, 4, 0.4)',
+                                border: '1px solid rgba(205, 160, 110, 0.2)',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                color: '#f5f1ed',
+                                fontSize: '14px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <option value="Chest">Chest</option>
+                              <option value="Back">Back</option>
+                              <option value="Legs">Legs</option>
+                              <option value="Shoulders">Shoulders</option>
+                              <option value="Arms">Arms</option>
+                              <option value="Core">Core</option>
+                            </select>
+                          </div>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div>
+                              <label style={{ fontSize: '10px', color: '#8b7566', letterSpacing: '1px', marginBottom: '6px', display: 'block' }}>
+                                WEIGHT (KG)
+                              </label>
+                              <input
+                                type="number"
+                                value={editingExercise.lastWeight}
+                                onChange={(e) => setEditingExercise({...editingExercise, lastWeight: parseFloat(e.target.value) || 0})}
+                                style={{
+                                  width: '100%',
+                                  background: 'rgba(10, 6, 4, 0.4)',
+                                  border: '1px solid rgba(205, 160, 110, 0.2)',
+                                  padding: '12px',
+                                  borderRadius: '12px',
+                                  color: '#f5f1ed',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                            
+                            <div>
+                              <label style={{ fontSize: '10px', color: '#8b7566', letterSpacing: '1px', marginBottom: '6px', display: 'block' }}>
+                                REPS
+                              </label>
+                              <input
+                                type="number"
+                                value={editingExercise.lastReps}
+                                onChange={(e) => setEditingExercise({...editingExercise, lastReps: parseInt(e.target.value) || 0})}
+                                style={{
+                                  width: '100%',
+                                  background: 'rgba(10, 6, 4, 0.4)',
+                                  border: '1px solid rgba(205, 160, 110, 0.2)',
+                                  padding: '12px',
+                                  borderRadius: '12px',
+                                  color: '#f5f1ed',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                            <button
+                              onClick={() => {
+                                const updated = {...exercises};
+                                const exerciseId = editingExercise.id || editingExercise.name.toLowerCase().replace(/\s+/g, '-');
+                                updated[exerciseId] = {
+                                  ...editingExercise,
+                                  id: exerciseId
+                                };
+                                setExercises(updated);
+                                setEditingExercise(null);
+                              }}
+                              style={{
+                                flex: 1,
+                                background: 'rgba(205, 160, 110, 0.2)',
+                                border: '1px solid rgba(205, 160, 110, 0.3)',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                color: '#d4a574',
+                                fontWeight: 400,
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <Save size={14} />
+                              Save Changes
+                            </button>
+                            
+                            <button
+                              onClick={() => setEditingExercise(null)}
+                              style={{
+                                background: 'rgba(184, 125, 94, 0.1)',
+                                border: '1px solid rgba(184, 125, 94, 0.2)',
+                                padding: '12px 20px',
+                                borderRadius: '12px',
+                                color: '#b87d5e',
+                                fontWeight: 400,
+                                fontSize: '13px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={exercise.id} style={{
                   background: 'rgba(10, 6, 4, 0.4)',
                   backdropFilter: 'blur(20px)',
                   border: '1px solid rgba(205, 160, 110, 0.1)',
@@ -2784,7 +2952,7 @@ const WorkoutTracker = () => {
                     </button>
                   </div>
                 </div>
-              ))}
+              )))}
                 </div>
                 
                 {/* Add New Exercise Button */}
