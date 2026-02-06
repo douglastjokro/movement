@@ -24,6 +24,20 @@ Your workout data is now saved in a folder you can SEE in Google Drive!
 - **File:** `movement-workout-data.json`
 - **You can:** Download, backup, view your data anytime
 
+### Fix #5: Program Builder
+Edit which exercises are in each workout program (Push/Pull/Legs/etc.)!
+- **New tab:** "Programs" in navigation
+- **Add exercises** to any program
+- **Remove exercises** you don't use
+- **Customize** all 6 programs (Push/Pull/Legs/Upper/Lower/Custom)
+
+### Fix #6: Add Exercises During Workout
+Add exercises on-the-fly while logging workouts!
+- **Add from dropdown:** Choose existing exercises
+- **Quick add new:** Create new exercise during workout
+- **Perfect for:** Days when you do different exercises
+- **Auto-saves:** New exercises added to your list
+
 ---
 
 ## What Changed:

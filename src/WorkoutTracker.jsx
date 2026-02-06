@@ -923,6 +923,7 @@ const WorkoutTracker = () => {
         {[
           { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
           { key: 'workout', label: 'Workout', icon: Dumbbell },
+          { key: 'programs', label: 'Programs', icon: Grid3x3 },
           { key: 'manage', label: 'Manage', icon: Target }
         ].map(({ key, label, icon: Icon }) => (
           <button
@@ -1652,10 +1653,349 @@ const WorkoutTracker = () => {
                     );
                   })}
                 </div>
+                  
+                  {/* Add Exercise On-The-Fly */}
+                  <div style={{
+                    background: 'rgba(10, 6, 4, 0.4)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(205, 160, 110, 0.1)',
+                    borderRadius: '24px',
+                    padding: '28px',
+                    borderStyle: 'dashed'
+                  }}>
+                    <h3 style={{
+                      margin: '0 0 20px 0',
+                      fontSize: '18px',
+                      letterSpacing: '0.3px',
+                      fontWeight: 300,
+                      color: '#d4a574'
+                    }}>
+                      Add Exercise to This Workout
+                    </h3>
+                    
+                    <div style={{ display: 'grid', gap: '16px' }}>
+                      {/* Choose from existing */}
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          FROM YOUR EXERCISES
+                        </label>
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const updated = {...currentWorkout};
+                              updated[e.target.value] = { sets: [{ weight: exercises[e.target.value].lastWeight, reps: exercises[e.target.value].lastReps }] };
+                              setCurrentWorkout(updated);
+                              e.target.value = '';
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(205, 160, 110, 0.05)',
+                            border: '1px solid rgba(205, 160, 110, 0.2)',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            color: '#f5f1ed',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="">Select exercise...</option>
+                          {Object.values(exercises)
+                            .filter(ex => !currentWorkout[ex.id])
+                            .map(ex => (
+                              <option key={ex.id} value={ex.id}>
+                                {ex.name} ({ex.bodyPart})
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      
+                      {/* Quick add new exercise */}
+                      <div style={{
+                        borderTop: '1px solid rgba(205, 160, 110, 0.1)',
+                        paddingTop: '16px'
+                      }}>
+                        <label style={{ fontSize: '11px', color: '#8b7566', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>
+                          OR QUICK ADD NEW EXERCISE
+                        </label>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                          <input
+                            type="text"
+                            placeholder="Exercise name"
+                            value={tempExercise.name}
+                            onChange={(e) => setTempExercise({...tempExercise, name: e.target.value})}
+                            style={{
+                              background: 'rgba(205, 160, 110, 0.05)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '12px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px'
+                            }}
+                          />
+                          
+                          <select
+                            value={tempExercise.bodyPart}
+                            onChange={(e) => setTempExercise({...tempExercise, bodyPart: e.target.value})}
+                            style={{
+                              background: 'rgba(205, 160, 110, 0.05)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '12px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="Chest">Chest</option>
+                            <option value="Back">Back</option>
+                            <option value="Shoulders">Shoulders</option>
+                            <option value="Biceps">Biceps</option>
+                            <option value="Triceps">Triceps</option>
+                            <option value="Legs">Legs</option>
+                            <option value="Abs">Abs</option>
+                            <option value="Cardio">Cardio</option>
+                          </select>
+                          
+                          <input
+                            type="number"
+                            placeholder="Weight"
+                            value={tempExercise.weight || ''}
+                            onChange={(e) => setTempExercise({...tempExercise, weight: parseFloat(e.target.value) || 0})}
+                            step="0.5"
+                            style={{
+                              background: 'rgba(205, 160, 110, 0.05)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '12px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px'
+                            }}
+                          />
+                          
+                          <input
+                            type="number"
+                            placeholder="Reps"
+                            value={tempExercise.reps || ''}
+                            onChange={(e) => setTempExercise({...tempExercise, reps: parseInt(e.target.value) || 0})}
+                            style={{
+                              background: 'rgba(205, 160, 110, 0.05)',
+                              border: '1px solid rgba(205, 160, 110, 0.2)',
+                              padding: '12px',
+                              borderRadius: '12px',
+                              color: '#f5f1ed',
+                              fontSize: '14px'
+                            }}
+                          />
+                        </div>
+                        
+                        <button
+                          onClick={() => {
+                            if (tempExercise.name && tempExercise.weight && tempExercise.reps) {
+                              // Create new exercise
+                              const newId = tempExercise.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+                              const newExercise = {
+                                id: newId,
+                                name: tempExercise.name,
+                                bodyPart: tempExercise.bodyPart,
+                                lastWeight: tempExercise.weight,
+                                lastReps: tempExercise.reps,
+                                history: []
+                              };
+                              
+                              // Add to exercises
+                              setExercises({...exercises, [newId]: newExercise});
+                              
+                              // Add to current workout
+                              const updated = {...currentWorkout};
+                              updated[newId] = { sets: [{ weight: tempExercise.weight, reps: tempExercise.reps }] };
+                              setCurrentWorkout(updated);
+                              
+                              // Reset form
+                              setTempExercise({ name: '', bodyPart: 'Chest', weight: 0, reps: 0 });
+                            }
+                          }}
+                          disabled={!tempExercise.name || !tempExercise.weight || !tempExercise.reps}
+                          style={{
+                            background: tempExercise.name && tempExercise.weight && tempExercise.reps 
+                              ? 'rgba(205, 160, 110, 0.15)'
+                              : 'rgba(100, 100, 100, 0.1)',
+                            border: tempExercise.name && tempExercise.weight && tempExercise.reps
+                              ? '1px solid rgba(205, 160, 110, 0.3)'
+                              : '1px solid rgba(100, 100, 100, 0.2)',
+                            padding: '12px 20px',
+                            borderRadius: '12px',
+                            color: tempExercise.name && tempExercise.weight && tempExercise.reps ? '#cda06e' : '#666',
+                            fontWeight: 400,
+                            cursor: tempExercise.name && tempExercise.weight && tempExercise.reps ? 'pointer' : 'not-allowed',
+                            fontSize: '13px',
+                            letterSpacing: '0.3px',
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <Plus size={14} strokeWidth={1.5} />
+                          Add to Workout
+                        </button>
+                      </div>
+                    </div>
+                  </div>
               </div>
             )}
           </div>
         )}
+
+        {activeTab === 'programs' && (
+          <div style={{ animation: 'fadeIn 0.8s ease' }}>
+            <h2 style={{
+              fontSize: '26px',
+              letterSpacing: '1px',
+              marginBottom: '40px',
+              color: '#d4a574',
+              fontWeight: 200
+            }}>
+              Program Builder
+            </h2>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              {Object.entries(programs).map(([programName, exerciseIds]) => (
+                <div key={programName} style={{
+                  background: 'rgba(10, 6, 4, 0.4)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(205, 160, 110, 0.15)',
+                  borderRadius: '24px',
+                  padding: '32px',
+                }}>
+                  <h3 style={{
+                    fontSize: '20px',
+                    color: '#d4a574',
+                    fontWeight: 300,
+                    marginBottom: '24px',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {programName}
+                  </h3>
+                  
+                  {/* Current exercises in program */}
+                  <div style={{ marginBottom: '24px' }}>
+                    {exerciseIds.length === 0 ? (
+                      <div style={{ 
+                        color: '#6b5d52', 
+                        fontSize: '14px', 
+                        fontStyle: 'italic',
+                        padding: '16px',
+                        background: 'rgba(205, 160, 110, 0.03)',
+                        borderRadius: '12px'
+                      }}>
+                        No exercises in this program yet
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {exerciseIds.map(exerciseId => {
+                          const exercise = exercises[exerciseId];
+                          if (!exercise) return null;
+                          
+                          return (
+                            <div key={exerciseId} style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '16px',
+                              background: 'rgba(205, 160, 110, 0.05)',
+                              borderRadius: '12px',
+                              border: '1px solid rgba(205, 160, 110, 0.1)'
+                            }}>
+                              <div>
+                                <div style={{ fontSize: '15px', color: '#f5f1ed', fontWeight: 300 }}>
+                                  {exercise.name}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#8b7566', marginTop: '4px' }}>
+                                  {exercise.bodyPart} • {exercise.lastWeight}kg × {exercise.lastReps}
+                                </div>
+                              </div>
+                              
+                              <button
+                                onClick={() => {
+                                  const updated = {...programs};
+                                  updated[programName] = updated[programName].filter(id => id !== exerciseId);
+                                  setPrograms(updated);
+                                }}
+                                style={{
+                                  background: 'rgba(184, 125, 94, 0.1)',
+                                  border: '1px solid rgba(184, 125, 94, 0.2)',
+                                  padding: '8px 16px',
+                                  borderRadius: '10px',
+                                  color: '#b87d5e',
+                                  fontSize: '12px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Add exercise dropdown */}
+                  <div style={{
+                    borderTop: '1px solid rgba(205, 160, 110, 0.1)',
+                    paddingTop: '24px'
+                  }}>
+                    <label style={{ 
+                      fontSize: '11px', 
+                      color: '#8b7566', 
+                      letterSpacing: '1px',
+                      marginBottom: '12px',
+                      display: 'block'
+                    }}>
+                      ADD EXERCISE
+                    </label>
+                    
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value && !exerciseIds.includes(e.target.value)) {
+                            const updated = {...programs};
+                            updated[programName] = [...updated[programName], e.target.value];
+                            setPrograms(updated);
+                            e.target.value = '';
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(205, 160, 110, 0.05)',
+                          border: '1px solid rgba(205, 160, 110, 0.2)',
+                          padding: '12px',
+                          borderRadius: '12px',
+                          color: '#f5f1ed',
+                          fontSize: '14px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="">Select exercise to add...</option>
+                        {Object.values(exercises)
+                          .filter(ex => !exerciseIds.includes(ex.id))
+                          .map(ex => (
+                            <option key={ex.id} value={ex.id}>
+                              {ex.name} ({ex.bodyPart})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
 
         {activeTab === 'manage' && (
           <div style={{ animation: 'fadeIn 0.8s ease' }}>
