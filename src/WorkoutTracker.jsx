@@ -2052,7 +2052,49 @@ const WorkoutTracker = () => {
                   </div>
                 </div>
               ))}
-            </div>
+                </div>
+                
+                {/* Add New Exercise Button */}
+                <button
+                  onClick={() => setEditingExercise({ 
+                    id: '', 
+                    name: '', 
+                    bodyPart: 'Chest', 
+                    lastWeight: 0, 
+                    lastReps: 0, 
+                    isNew: true 
+                  })}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)',
+                    border: '2px dashed rgba(205, 160, 110, 0.2)',
+                    borderRadius: '20px',
+                    padding: '28px',
+                    color: '#cda06e',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: 400,
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    transition: 'all 0.3s ease',
+                    marginTop: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <Plus size={20} strokeWidth={2} />
+                  Add New Exercise
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -2238,8 +2280,62 @@ const WorkoutTracker = () => {
               </div>
             ) : null}
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {Object.values(exercises).map(exercise => (
+            {Object.keys(exercises).length === 0 && !editingExercise ? (
+              <div style={{
+                background: 'rgba(205, 160, 110, 0.05)',
+                border: '2px dashed rgba(205, 160, 110, 0.2)',
+                borderRadius: '24px',
+                padding: '60px 40px',
+                textAlign: 'center'
+              }}>
+                <Dumbbell size={48} strokeWidth={1} style={{ color: '#cda06e', opacity: 0.5, marginBottom: '24px' }} />
+                <h3 style={{ color: '#d4a574', fontSize: '24px', marginBottom: '16px', fontWeight: 300 }}>
+                  No Exercises Yet
+                </h3>
+                <p style={{ color: '#8b7566', fontSize: '15px', lineHeight: '1.8', marginBottom: '32px', maxWidth: '500px', margin: '0 auto 32px' }}>
+                  You haven't created any exercises yet.<br />
+                  Click below to add your first exercise and start building your workout library.
+                </p>
+                <button
+                  onClick={() => setEditingExercise({ 
+                    id: '', 
+                    name: '', 
+                    bodyPart: 'Chest', 
+                    lastWeight: 0, 
+                    lastReps: 0, 
+                    isNew: true 
+                  })}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)',
+                    border: '1px solid rgba(205, 160, 110, 0.3)',
+                    padding: '16px 32px',
+                    borderRadius: '16px',
+                    color: '#cda06e',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: 400,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.3) 0%, rgba(205, 160, 110, 0.15) 100%)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <Plus size={18} strokeWidth={2} />
+                  Add Your First Exercise
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {Object.values(exercises).map(exercise => (
                 <div key={exercise.id} style={{
                   background: 'rgba(10, 6, 4, 0.4)',
                   backdropFilter: 'blur(20px)',
@@ -2337,7 +2433,49 @@ const WorkoutTracker = () => {
                   </div>
                 </div>
               ))}
-            </div>
+                </div>
+                
+                {/* Add New Exercise Button */}
+                <button
+                  onClick={() => setEditingExercise({ 
+                    id: '', 
+                    name: '', 
+                    bodyPart: 'Chest', 
+                    lastWeight: 0, 
+                    lastReps: 0, 
+                    isNew: true 
+                  })}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)',
+                    border: '2px dashed rgba(205, 160, 110, 0.2)',
+                    borderRadius: '20px',
+                    padding: '28px',
+                    color: '#cda06e',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: 400,
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    transition: 'all 0.3s ease',
+                    marginTop: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(205, 160, 110, 0.15) 0%, rgba(205, 160, 110, 0.05) 100%)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <Plus size={20} strokeWidth={2} />
+                  Add New Exercise
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
