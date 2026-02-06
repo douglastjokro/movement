@@ -2093,8 +2093,6 @@ const WorkoutTracker = () => {
                   <Plus size={20} strokeWidth={2} />
                   Add New Exercise
                 </button>
-              </>
-            )}
           </div>
         )}
 
