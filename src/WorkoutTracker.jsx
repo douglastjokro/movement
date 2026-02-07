@@ -1038,86 +1038,108 @@ const WorkoutTracker = () => {
     // Helper function to get week number from training start
     const getWeekFromStart = (date) => {
       const d = new Date(date);
-      const diffTime = d - trainingStartDate;
+      d.setHours(0, 0, 0, 0);
+      const start = new Date(trainingStartDate);
+      start.setHours(0, 0, 0, 0);
+      const diffTime = d - start;
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const weekNum = Math.floor(diffDays / 7) + 1; // Week 1, Week 2, etc.
+      const weekNum = Math.floor(diffDays / 7) + 1;
       return weekNum;
+    };
+    
+    // Helper to get workout type from date
+    const getWorkoutTypeFromDate = (date) => {
+      const dayOfWeek = date.getDay();
+      // Monday = 1, Tuesday = 2, Wednesday = 3, Friday = 5, Saturday = 6
+      if (dayOfWeek === 1) return 'Push';
+      if (dayOfWeek === 2) return 'Pull';
+      if (dayOfWeek === 3) return 'Legs';
+      if (dayOfWeek === 5) return 'Upper';
+      if (dayOfWeek === 6) return 'Lower';
+      return 'Unknown';
     };
     
     return order.filter(bodyPart => bodyParts[bodyPart]).map(bodyPart => {
       const exs = bodyParts[bodyPart];
       
-      // Calculate weekly volume: sum ALL exercises for this body part per week
-      const weeklyData = {};
+      // Step 1: Find which workout days this body part appears in
+      const workoutDayVolumes = {}; // { 'Push': { week1: 2400, week2: 2500 }, 'Upper': { week1: 800 } }
       
       exs.forEach(ex => {
         if (ex.history && ex.history.length > 0) {
           ex.history.forEach(entry => {
             const date = new Date(entry.date);
             const weekNum = getWeekFromStart(date);
+            const workoutType = getWorkoutTypeFromDate(date);
             
-            if (weekNum < 1) return; // Skip dates before training start
+            if (weekNum < 1) return;
             
-            const weekKey = `Week ${weekNum}`;
-            
-            // Calculate volume for this exercise in this workout
+            // Calculate volume for this exercise
             const volume = entry.sets.reduce((sum, set) => sum + (set.weight * set.reps), 0);
             
-            if (!weeklyData[weekKey]) {
-              weeklyData[weekKey] = { 
-                week: weekKey, 
-                weekNum: weekNum,
-                volume: 0 
-              };
+            // Initialize workout type if needed
+            if (!workoutDayVolumes[workoutType]) {
+              workoutDayVolumes[workoutType] = {};
             }
             
-            // ADD to existing volume (sum all exercises for this body part)
-            weeklyData[weekKey].volume += volume;
+            // Add to this workout type's volume for this week
+            if (!workoutDayVolumes[workoutType][weekNum]) {
+              workoutDayVolumes[workoutType][weekNum] = 0;
+            }
+            workoutDayVolumes[workoutType][weekNum] += volume;
           });
         }
       });
       
-      // Convert to array and sort by week number
-      let chartData = Object.values(weeklyData)
-        .sort((a, b) => a.weekNum - b.weekNum);
+      // Step 2: Find all weeks that have any data
+      const allWeeks = new Set();
+      Object.values(workoutDayVolumes).forEach(weekData => {
+        Object.keys(weekData).forEach(week => allWeeks.add(parseInt(week)));
+      });
       
-      // Fill missing weeks with previous week's data
-      if (chartData.length > 0) {
-        const filledData = [chartData[0]];
-        
-        for (let i = 1; i < chartData.length; i++) {
-          const currentWeek = chartData[i].weekNum;
-          const previousWeek = chartData[i - 1].weekNum;
-          const gap = currentWeek - previousWeek;
-          
-          // Fill gaps between weeks
-          if (gap > 1) {
-            for (let w = previousWeek + 1; w < currentWeek; w++) {
-              filledData.push({
-                week: `Week ${w}`,
-                weekNum: w,
-                volume: chartData[i - 1].volume // Use previous week's volume
-              });
-            }
-          }
-          
-          filledData.push(chartData[i]);
-        }
-        
-        chartData = filledData;
+      if (allWeeks.size === 0) {
+        return {
+          bodyPart,
+          chartData: [{ week: 'No data', volume: 0 }],
+          exercises: exs.length,
+          currentVolume: 0
+        };
       }
       
-      // Format for display (remove weekNum, keep only volume)
-      const displayData = chartData.map(item => ({
-        week: item.week,
-        volume: Math.round(item.volume)
-      }));
+      const sortedWeeks = Array.from(allWeeks).sort((a, b) => a - b);
+      
+      // Step 3: For each week, sum volumes from each workout day (using last known value if missing)
+      const weeklyTotals = [];
+      const lastKnownValues = {}; // Track last known value for each workout day
+      
+      sortedWeeks.forEach(weekNum => {
+        let weekTotal = 0;
+        
+        // For each workout day type (Push, Upper, etc.)
+        Object.keys(workoutDayVolumes).forEach(workoutType => {
+          if (workoutDayVolumes[workoutType][weekNum]) {
+            // This workout day happened this week - use actual value
+            const actualVolume = workoutDayVolumes[workoutType][weekNum];
+            weekTotal += actualVolume;
+            lastKnownValues[workoutType] = actualVolume; // Update last known
+          } else if (lastKnownValues[workoutType]) {
+            // This workout day didn't happen - use last known value
+            weekTotal += lastKnownValues[workoutType];
+          }
+          // If no last known value, don't add anything (first occurrence)
+        });
+        
+        weeklyTotals.push({
+          week: `Week ${weekNum}`,
+          volume: Math.round(weekTotal)
+        });
+      });
       
       return {
         bodyPart,
-        chartData: displayData.length > 0 ? displayData : [{ week: 'No data', volume: 0 }],
+        chartData: weeklyTotals,
         exercises: exs.length,
-        currentVolume: displayData.length > 0 ? displayData[displayData.length - 1].volume : 0
+        currentVolume: weeklyTotals.length > 0 ? weeklyTotals[weeklyTotals.length - 1].volume : 0
       };
     });
   };
