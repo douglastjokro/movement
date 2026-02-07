@@ -1032,66 +1032,92 @@ const WorkoutTracker = () => {
     // Define the order
     const order = ['Chest', 'Back', 'Biceps', 'Shoulders', 'Legs', 'Abs'];
     
+    // Training start date for week calculation
+    const trainingStartDate = new Date(2025, 11, 9); // December 9, 2025
+    
+    // Helper function to get week number from training start
+    const getWeekFromStart = (date) => {
+      const d = new Date(date);
+      const diffTime = d - trainingStartDate;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const weekNum = Math.floor(diffDays / 7) + 1; // Week 1, Week 2, etc.
+      return weekNum;
+    };
+    
     return order.filter(bodyPart => bodyParts[bodyPart]).map(bodyPart => {
       const exs = bodyParts[bodyPart];
       
-      // Calculate weekly volume over time
+      // Calculate weekly volume: sum ALL exercises for this body part per week
       const weeklyData = {};
       
       exs.forEach(ex => {
         if (ex.history && ex.history.length > 0) {
           ex.history.forEach(entry => {
             const date = new Date(entry.date);
-            // Get week number (simple: YYYY-WW format)
-            const year = date.getFullYear();
-            const weekNum = Math.ceil((date - new Date(year, 0, 1)) / (7 * 24 * 60 * 60 * 1000));
-            const weekKey = `${year}-W${weekNum.toString().padStart(2, '0')}`;
+            const weekNum = getWeekFromStart(date);
             
-            // Calculate volume for this workout
+            if (weekNum < 1) return; // Skip dates before training start
+            
+            const weekKey = `Week ${weekNum}`;
+            
+            // Calculate volume for this exercise in this workout
             const volume = entry.sets.reduce((sum, set) => sum + (set.weight * set.reps), 0);
             
             if (!weeklyData[weekKey]) {
-              weeklyData[weekKey] = { week: weekKey, volume: 0, date: date };
+              weeklyData[weekKey] = { 
+                week: weekKey, 
+                weekNum: weekNum,
+                volume: 0 
+              };
             }
+            
+            // ADD to existing volume (sum all exercises for this body part)
             weeklyData[weekKey].volume += volume;
           });
         }
       });
       
-      // Convert to array and sort by date
-      const chartData = Object.values(weeklyData)
-        .sort((a, b) => a.date - b.date)
-        .map(item => ({
-          week: item.week,
-          volume: Math.round(item.volume)
-        }));
+      // Convert to array and sort by week number
+      let chartData = Object.values(weeklyData)
+        .sort((a, b) => a.weekNum - b.weekNum);
       
-      // If missing weeks, fill with previous week's data
-      const filledData = [];
-      for (let i = 0; i < chartData.length; i++) {
-        filledData.push(chartData[i]);
+      // Fill missing weeks with previous week's data
+      if (chartData.length > 0) {
+        const filledData = [chartData[0]];
         
-        // Check if there's a gap to next week
-        if (i < chartData.length - 1) {
-          const currentWeek = parseInt(chartData[i].week.split('-W')[1]);
-          const nextWeek = parseInt(chartData[i + 1].week.split('-W')[1]);
-          const gap = nextWeek - currentWeek - 1;
+        for (let i = 1; i < chartData.length; i++) {
+          const currentWeek = chartData[i].weekNum;
+          const previousWeek = chartData[i - 1].weekNum;
+          const gap = currentWeek - previousWeek;
           
-          // Fill gaps with previous week's data
-          for (let j = 1; j <= gap && j <= 3; j++) { // Max 3 weeks gap fill
-            filledData.push({
-              week: `${chartData[i].week.split('-W')[0]}-W${(currentWeek + j).toString().padStart(2, '0')}`,
-              volume: chartData[i].volume // Use previous week's volume
-            });
+          // Fill gaps between weeks
+          if (gap > 1) {
+            for (let w = previousWeek + 1; w < currentWeek; w++) {
+              filledData.push({
+                week: `Week ${w}`,
+                weekNum: w,
+                volume: chartData[i - 1].volume // Use previous week's volume
+              });
+            }
           }
+          
+          filledData.push(chartData[i]);
         }
+        
+        chartData = filledData;
       }
+      
+      // Format for display (remove weekNum, keep only volume)
+      const displayData = chartData.map(item => ({
+        week: item.week,
+        volume: Math.round(item.volume)
+      }));
       
       return {
         bodyPart,
-        chartData: filledData.length > 0 ? filledData : [{ week: 'No data', volume: 0 }],
+        chartData: displayData.length > 0 ? displayData : [{ week: 'No data', volume: 0 }],
         exercises: exs.length,
-        currentVolume: filledData.length > 0 ? filledData[filledData.length - 1].volume : 0
+        currentVolume: displayData.length > 0 ? displayData[displayData.length - 1].volume : 0
       };
     });
   };
@@ -1216,9 +1242,9 @@ const WorkoutTracker = () => {
     Object.entries(currentWorkout).forEach(([exerciseId, data]) => {
       // Convert empty strings to numbers and filter out invalid sets
       const validSets = data.sets.map(set => ({
-        weight: parseFloat(set.weight) || 0,
-        reps: parseFloat(set.reps) || 0
-      })).filter(set => set.weight >= 0 && set.reps > 0); // Changed: Allow weight >= 0 (for bodyweight)
+        weight: set.weight === '' ? null : parseFloat(set.weight),
+        reps: set.reps === '' ? null : parseFloat(set.reps)
+      })).filter(set => set.weight !== null && set.reps !== null && set.reps > 0); // Accept weight of 0 or more, reps must be > 0
       
       if (validSets.length === 0) return; // Skip if no valid sets
       
