@@ -1034,28 +1034,64 @@ const WorkoutTracker = () => {
     
     return order.filter(bodyPart => bodyParts[bodyPart]).map(bodyPart => {
       const exs = bodyParts[bodyPart];
-      const avgProgress = exs.reduce((acc, ex) => {
-        // Check if exercise has history and history has entries with sets
-        if (ex.history && ex.history.length >= 2 && ex.history[0].sets && ex.history[0].sets.length > 0) {
-          // Get best set from first and last workout
-          const firstBest = ex.history[0].sets.reduce((best, set) => 
-            set.weight * set.reps > best.weight * best.reps ? set : best
-          );
-          const lastBest = ex.history[ex.history.length - 1].sets.reduce((best, set) => 
-            set.weight * set.reps > best.weight * best.reps ? set : best
-          );
-          return acc + ((lastBest.weight - firstBest.weight) / firstBest.weight) * 100;
+      
+      // Calculate weekly volume over time
+      const weeklyData = {};
+      
+      exs.forEach(ex => {
+        if (ex.history && ex.history.length > 0) {
+          ex.history.forEach(entry => {
+            const date = new Date(entry.date);
+            // Get week number (simple: YYYY-WW format)
+            const year = date.getFullYear();
+            const weekNum = Math.ceil((date - new Date(year, 0, 1)) / (7 * 24 * 60 * 60 * 1000));
+            const weekKey = `${year}-W${weekNum.toString().padStart(2, '0')}`;
+            
+            // Calculate volume for this workout
+            const volume = entry.sets.reduce((sum, set) => sum + (set.weight * set.reps), 0);
+            
+            if (!weeklyData[weekKey]) {
+              weeklyData[weekKey] = { week: weekKey, volume: 0, date: date };
+            }
+            weeklyData[weekKey].volume += volume;
+          });
         }
-        return acc;
-      }, 0) / exs.length;
-
-      const totalVolume = exs.reduce((acc, ex) => acc + (ex.lastWeight || 0) * (ex.lastReps || 0), 0);
-
+      });
+      
+      // Convert to array and sort by date
+      const chartData = Object.values(weeklyData)
+        .sort((a, b) => a.date - b.date)
+        .map(item => ({
+          week: item.week,
+          volume: Math.round(item.volume)
+        }));
+      
+      // If missing weeks, fill with previous week's data
+      const filledData = [];
+      for (let i = 0; i < chartData.length; i++) {
+        filledData.push(chartData[i]);
+        
+        // Check if there's a gap to next week
+        if (i < chartData.length - 1) {
+          const currentWeek = parseInt(chartData[i].week.split('-W')[1]);
+          const nextWeek = parseInt(chartData[i + 1].week.split('-W')[1]);
+          const gap = nextWeek - currentWeek - 1;
+          
+          // Fill gaps with previous week's data
+          for (let j = 1; j <= gap && j <= 3; j++) { // Max 3 weeks gap fill
+            filledData.push({
+              week: `${chartData[i].week.split('-W')[0]}-W${(currentWeek + j).toString().padStart(2, '0')}`,
+              volume: chartData[i].volume // Use previous week's volume
+            });
+          }
+        }
+      }
+      
       return {
         bodyPart,
-        avgProgress: avgProgress.toFixed(1),
-        totalVolume,
-        exercises: exs.length
+        chartData: filledData.length > 0 ? filledData : [{ week: 'No data', volume: 0 }],
+        exercises: exs.length,
+        currentVolume: filledData.length > 0 ? filledData[filledData.length - 1].volume : 0
       };
     });
   };
@@ -1182,7 +1218,7 @@ const WorkoutTracker = () => {
       const validSets = data.sets.map(set => ({
         weight: parseFloat(set.weight) || 0,
         reps: parseFloat(set.reps) || 0
-      })).filter(set => set.weight > 0 && set.reps > 0);
+      })).filter(set => set.weight >= 0 && set.reps > 0); // Changed: Allow weight >= 0 (for bodyweight)
       
       if (validSets.length === 0) return; // Skip if no valid sets
       
@@ -1688,7 +1724,7 @@ const WorkoutTracker = () => {
                   color: '#d4a574',
                   fontWeight: 200
                 }}>
-                  Progress by Body Part
+                  Weekly Volume by Body Part
                 </h3>
                 <div style={{
                   fontSize: '10px',
@@ -1700,80 +1736,100 @@ const WorkoutTracker = () => {
                   fontWeight: 200,
                   letterSpacing: '0.5px'
                 }}>
-                  % = Average weight increase
+                  Total weight × reps per week
                 </div>
               </div>
-              <div style={{ display: 'grid', gap: '20px' }}>
-                {bodyPartProgress.map(({ bodyPart, avgProgress, totalVolume, exercises: exCount }) => {
+              <div style={{ display: 'grid', gap: '30px' }}>
+                {bodyPartProgress.map(({ bodyPart, chartData, exercises: exCount, currentVolume }) => {
                   const iconSrc = getBodyPartIcon(bodyPart);
                   return (
                     <div key={bodyPart} style={{
                       background: 'rgba(205, 160, 110, 0.02)',
                       border: '1px solid rgba(205, 160, 110, 0.08)',
                       borderRadius: '20px',
-                      padding: '24px',
-                      display: 'grid',
-                      gridTemplateColumns: '180px 1fr auto',
-                      alignItems: 'center',
-                      gap: '24px'
+                      padding: '28px'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          background: 'transparent',
-                          border: '1px solid rgba(205, 160, 110, 0.15)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <img 
-                            src={iconSrc} 
-                            alt={bodyPart}
-                            style={{ 
-                              width: '22px', 
-                              height: '22px',
-                              objectFit: 'contain',
-                              display: 'block',
-                              mixBlendMode: 'lighten'
-                            }} 
-                          />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '17px', fontWeight: 300, marginBottom: '4px', letterSpacing: '0.5px', color: '#f5f1ed' }}>
-                            {bodyPart}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#6b5d52', fontWeight: 200 }}>
-                            {exCount} exercises
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '11px', color: '#6b5d52', marginBottom: '10px', fontWeight: 200 }}>
-                          Volume: {totalVolume}kg
-                        </div>
-                        <div style={{
-                          background: 'rgba(205, 160, 110, 0.1)',
-                          borderRadius: '12px',
-                          height: '6px',
-                          overflow: 'hidden'
-                        }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{
-                            background: 'linear-gradient(90deg, #d4a574 0%, #b88a5e 100%)',
-                            height: '100%',
-                            width: `${Math.min(100, Math.abs(avgProgress))}%`,
-                            borderRadius: '12px',
-                            transition: 'width 0.8s ease'
-                          }} />
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            background: 'transparent',
+                            border: '1px solid rgba(205, 160, 110, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <img 
+                              src={iconSrc} 
+                              alt={bodyPart}
+                              style={{ 
+                                width: '24px', 
+                                height: '24px',
+                                objectFit: 'contain',
+                                display: 'block',
+                                mixBlendMode: 'lighten'
+                              }} 
+                            />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '18px', fontWeight: 300, marginBottom: '2px', letterSpacing: '0.5px', color: '#f5f1ed' }}>
+                              {bodyPart}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#6b5d52', fontWeight: 200 }}>
+                              {exCount} exercises
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '11px', color: '#6b5d52', marginBottom: '2px', fontWeight: 200 }}>
+                            Current Week
+                          </div>
+                          <div style={{ fontSize: '24px', fontWeight: 200, color: '#d4a574' }}>
+                            {currentVolume.toLocaleString()}kg
+                          </div>
                         </div>
                       </div>
-                      <div style={{
-                        fontSize: '28px',
-                        fontWeight: 200,
-                        color: avgProgress >= 0 ? '#d4a574' : '#b87d5e',
-                      }}>
-                        {avgProgress >= 0 ? '+' : ''}{avgProgress}%
+                      
+                      {/* Line Chart */}
+                      <div style={{ height: '200px', marginTop: '16px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(205, 160, 110, 0.1)" />
+                            <XAxis 
+                              dataKey="week" 
+                              stroke="#6b5d52" 
+                              style={{ fontSize: '10px' }}
+                              tick={{ fill: '#6b5d52' }}
+                            />
+                            <YAxis 
+                              stroke="#6b5d52" 
+                              style={{ fontSize: '10px' }}
+                              tick={{ fill: '#6b5d52' }}
+                            />
+                            <Tooltip 
+                              contentStyle={{ 
+                                background: 'rgba(10, 6, 4, 0.95)', 
+                                border: '1px solid rgba(205, 160, 110, 0.3)',
+                                borderRadius: '12px',
+                                padding: '12px',
+                                fontSize: '12px',
+                                color: '#f5f1ed'
+                              }}
+                              labelStyle={{ color: '#d4a574', marginBottom: '4px' }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="volume" 
+                              stroke="#d4a574" 
+                              strokeWidth={2}
+                              dot={{ fill: '#d4a574', r: 4 }}
+                              activeDot={{ r: 6 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
                   );
