@@ -1109,10 +1109,29 @@ const WorkoutTracker = () => {
     exerciseIds.forEach(id => {
       // Only add if exercise exists
       if (exercises[id]) {
-        workout[id] = {
-          sets: [{ weight: exercises[id].lastWeight, reps: exercises[id].lastReps }]
-        };
-        console.log('✅ Added:', exercises[id].name);
+        const exercise = exercises[id];
+        
+        // Get all sets from last workout if available
+        let initialSets = [];
+        if (exercise.history && exercise.history.length > 0) {
+          // Get the most recent workout's sets
+          const lastWorkout = exercise.history[exercise.history.length - 1];
+          if (lastWorkout.sets && lastWorkout.sets.length > 0) {
+            // Copy all sets from last workout
+            initialSets = lastWorkout.sets.map(set => ({
+              weight: set.weight,
+              reps: set.reps
+            }));
+          }
+        }
+        
+        // If no history, create one empty set
+        if (initialSets.length === 0) {
+          initialSets = [{ weight: '', reps: '' }];
+        }
+        
+        workout[id] = { sets: initialSets };
+        console.log('✅ Added:', exercise.name, 'with', initialSets.length, 'sets');
       } else {
         console.warn('⚠️ Exercise not found:', id);
       }
@@ -2328,7 +2347,29 @@ const WorkoutTracker = () => {
                           onChange={(e) => {
                             if (e.target.value) {
                               const updated = {...currentWorkout};
-                              updated[e.target.value] = { sets: [{ weight: '', reps: '' }] };
+                              const exerciseId = e.target.value;
+                              const exercise = exercises[exerciseId];
+                              
+                              // Get all sets from last workout if available
+                              let initialSets = [];
+                              if (exercise.history && exercise.history.length > 0) {
+                                // Get the most recent workout's sets
+                                const lastWorkout = exercise.history[exercise.history.length - 1];
+                                if (lastWorkout.sets && lastWorkout.sets.length > 0) {
+                                  // Copy all sets from last workout
+                                  initialSets = lastWorkout.sets.map(set => ({
+                                    weight: set.weight,
+                                    reps: set.reps
+                                  }));
+                                }
+                              }
+                              
+                              // If no history, create one empty set
+                              if (initialSets.length === 0) {
+                                initialSets = [{ weight: '', reps: '' }];
+                              }
+                              
+                              updated[exerciseId] = { sets: initialSets };
                               setCurrentWorkout(updated);
                               e.target.value = '';
                             }
