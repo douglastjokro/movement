@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move, ChevronLeft } from 'lucide-react';
 
 // Workout Calendar Component
-const WorkoutCalendar = ({ workoutHistory }) => {
+const WorkoutCalendar = ({ workoutHistory, onDayClick }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   
   // Expected workout days: Monday (Push), Tuesday (Pull), Wednesday (Legs), Friday (Upper), Saturday (Lower)
@@ -141,14 +141,17 @@ const WorkoutCalendar = ({ workoutHistory }) => {
       const isAfterStartDate = date >= trainingStartDate;
       const isMissed = isExpectedDay && isPast && !hasWorkout && !isToday && isAfterStartDate;
       
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push(
         <div
           key={day}
+          onClick={() => hasWorkout && onDayClick && onDayClick(dateStr)}
           style={{
             padding: '8px',
             textAlign: 'center',
             borderRadius: '8px',
-            background: hasWorkout 
+            cursor: hasWorkout ? 'pointer' : 'default',
+            background: hasWorkout
               ? 'rgba(76, 175, 80, 0.2)'  // Green for workout days
               : isMissed
               ? 'rgba(244, 67, 54, 0.15)'  // Red for missed days
@@ -158,15 +161,18 @@ const WorkoutCalendar = ({ workoutHistory }) => {
             border: isToday ? '1px solid rgba(205, 160, 110, 0.5)' : 'none',
             fontSize: '13px',
             fontWeight: isToday ? 500 : 300,
-            color: hasWorkout 
+            color: hasWorkout
               ? '#81C784'
               : isMissed
               ? '#E57373'
               : isToday
               ? '#d4a574'
               : '#8b7566',
-            position: 'relative'
+            position: 'relative',
+            transition: hasWorkout ? 'all 0.2s ease' : 'none'
           }}
+          onMouseEnter={(e) => { if (hasWorkout) e.currentTarget.style.background = 'rgba(76, 175, 80, 0.35)'; }}
+          onMouseLeave={(e) => { if (hasWorkout) e.currentTarget.style.background = 'rgba(76, 175, 80, 0.2)'; }}
         >
           {day}
           {isExpectedDay && !hasWorkout && !isPast && (
@@ -617,6 +623,13 @@ const WorkoutTracker = () => {
 
   const [currentWorkout, setCurrentWorkout] = useState({});
   const [tempExercise, setTempExercise] = useState({ name: '', bodyPart: 'Chest', weight: 0, reps: 0 });
+  const [selectedDayDetail, setSelectedDayDetail] = useState(null); // YYYY-MM-DD string for day detail modal
+  const [changeDateMode, setChangeDateMode] = useState(false);
+  const [newDateValue, setNewDateValue] = useState('');
+  const [bulkWeightAdjustMode, setBulkWeightAdjustMode] = useState(false);
+  const [bulkWeightAdjustType, setBulkWeightAdjustType] = useState('offset'); // 'offset' or 'multiply'
+  const [bulkWeightAdjustValue, setBulkWeightAdjustValue] = useState('');
+  const [editingHistorySet, setEditingHistorySet] = useState(null); // { exerciseId, setIndex, weight, reps }
 
   // Load Google API on component mount
   useEffect(() => {
@@ -1328,6 +1341,139 @@ const WorkoutTracker = () => {
     }
   };
 
+  const deleteEntireDay = (dateToDelete) => {
+    if (!window.confirm(`Delete all workout data for ${new Date(dateToDelete + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}? This cannot be undone.`)) return;
+
+    const updatedExercises = { ...exercises };
+
+    Object.keys(updatedExercises).forEach(exerciseId => {
+      const ex = updatedExercises[exerciseId];
+      if (ex.history && ex.history.some(entry => entry.date === dateToDelete)) {
+        updatedExercises[exerciseId] = {
+          ...ex,
+          history: ex.history.filter(entry => entry.date !== dateToDelete)
+        };
+        // Update lastWeight/lastReps based on most recent remaining entry
+        const remaining = updatedExercises[exerciseId].history;
+        if (remaining.length > 0) {
+          const lastEntry = remaining[remaining.length - 1];
+          const bestSet = lastEntry.sets.reduce((best, set) =>
+            set.weight * set.reps > best.weight * best.reps ? set : best
+          );
+          updatedExercises[exerciseId].lastWeight = bestSet.weight;
+          updatedExercises[exerciseId].lastReps = bestSet.reps;
+        }
+      }
+    });
+
+    setExercises(updatedExercises);
+    setWorkoutHistory(workoutHistory.filter(w => w.date !== dateToDelete));
+    setSelectedDayDetail(null);
+    setChangeDateMode(false);
+  };
+
+  const changeWorkoutDate = (oldDate, newDate) => {
+    if (!newDate) return;
+
+    // Check if new date already has a workout
+    const existingWorkout = workoutHistory.find(w => w.date === newDate);
+    if (existingWorkout) {
+      if (!window.confirm(`There's already a workout logged on ${new Date(newDate + 'T00:00:00').toLocaleDateString()}. This will merge the exercises into that date. Continue?`)) return;
+    }
+
+    const updatedExercises = { ...exercises };
+
+    Object.keys(updatedExercises).forEach(exerciseId => {
+      const ex = updatedExercises[exerciseId];
+      if (ex.history && ex.history.some(entry => entry.date === oldDate)) {
+        updatedExercises[exerciseId] = {
+          ...ex,
+          history: ex.history.map(entry =>
+            entry.date === oldDate ? { ...entry, date: newDate } : entry
+          )
+        };
+        // Update lastWeight/lastReps based on most recent entry after date change
+        const sorted = [...updatedExercises[exerciseId].history].sort((a, b) => a.date.localeCompare(b.date));
+        if (sorted.length > 0) {
+          const lastEntry = sorted[sorted.length - 1];
+          const bestSet = lastEntry.sets.reduce((best, set) =>
+            set.weight * set.reps > best.weight * best.reps ? set : best
+          );
+          updatedExercises[exerciseId].lastWeight = bestSet.weight;
+          updatedExercises[exerciseId].lastReps = bestSet.reps;
+        }
+      }
+    });
+
+    setExercises(updatedExercises);
+
+    // Update workoutHistory
+    if (existingWorkout) {
+      // Merge: update the exercise count on the existing date, remove old date entry
+      const oldEntry = workoutHistory.find(w => w.date === oldDate);
+      setWorkoutHistory(workoutHistory
+        .filter(w => w.date !== oldDate)
+        .map(w => w.date === newDate ? { ...w, exercisesCompleted: w.exercisesCompleted + (oldEntry?.exercisesCompleted || 0) } : w)
+      );
+    } else {
+      // Simply change the date
+      setWorkoutHistory(workoutHistory.map(w =>
+        w.date === oldDate ? { ...w, date: newDate } : w
+      ));
+    }
+
+    setSelectedDayDetail(null);
+    setChangeDateMode(false);
+    setNewDateValue('');
+  };
+
+  const bulkAdjustHistoryWeights = (exerciseId, adjustType, adjustValue) => {
+    const val = parseFloat(adjustValue);
+    if (isNaN(val)) return;
+    if (adjustType === 'multiply' && val <= 0) return;
+
+    const label = adjustType === 'offset'
+      ? `${val >= 0 ? '+' : ''}${val}kg to all sets`
+      : `×${val} to all sets`;
+
+    if (!window.confirm(`Apply ${label} for "${exercises[exerciseId].name}"? This will modify all historical weight records.`)) return;
+
+    const updatedExercises = { ...exercises };
+    const ex = updatedExercises[exerciseId];
+
+    if (ex.history) {
+      updatedExercises[exerciseId] = {
+        ...ex,
+        history: ex.history.map(entry => ({
+          ...entry,
+          sets: entry.sets.map(set => ({
+            ...set,
+            weight: Math.max(0, adjustType === 'offset'
+              ? Math.round((set.weight + val) * 100) / 100
+              : Math.round((set.weight * val) * 100) / 100
+            )
+          }))
+        }))
+      };
+
+      // Update lastWeight/lastReps from most recent entry
+      const history = updatedExercises[exerciseId].history;
+      if (history.length > 0) {
+        const lastEntry = history[history.length - 1];
+        const bestSet = lastEntry.sets.reduce((best, set) =>
+          set.weight * set.reps > best.weight * best.reps ? set : best
+        );
+        updatedExercises[exerciseId].lastWeight = bestSet.weight;
+        updatedExercises[exerciseId].lastReps = bestSet.reps;
+      }
+    }
+
+    setExercises(updatedExercises);
+    setBulkWeightAdjustMode(false);
+    setBulkWeightAdjustValue('');
+    setEditingExercise({ ...updatedExercises[exerciseId] });
+  };
+
   const updateHistoryEntry = (exerciseId, dateToUpdate, setIndex, newWeight, newReps) => {
     const updatedExercises = { ...exercises };
     updatedExercises[exerciseId] = {
@@ -1354,6 +1500,50 @@ const WorkoutTracker = () => {
       }
     }
     
+    setExercises(updatedExercises);
+  };
+
+  const addHistorySet = (exerciseId, date) => {
+    const updatedExercises = { ...exercises };
+    updatedExercises[exerciseId] = {
+      ...updatedExercises[exerciseId],
+      history: (updatedExercises[exerciseId].history || []).map(entry => {
+        if (entry.date === date) {
+          const lastSet = entry.sets[entry.sets.length - 1] || { weight: 0, reps: 0 };
+          return { ...entry, sets: [...entry.sets, { weight: lastSet.weight, reps: lastSet.reps }] };
+        }
+        return entry;
+      })
+    };
+    setExercises(updatedExercises);
+  };
+
+  const removeHistorySet = (exerciseId, date, setIndex) => {
+    const updatedExercises = { ...exercises };
+    updatedExercises[exerciseId] = {
+      ...updatedExercises[exerciseId],
+      history: (updatedExercises[exerciseId].history || []).map(entry => {
+        if (entry.date === date) {
+          const newSets = entry.sets.filter((_, i) => i !== setIndex);
+          return { ...entry, sets: newSets };
+        }
+        return entry;
+      })
+    };
+    // Remove the history entry entirely if no sets remain
+    updatedExercises[exerciseId].history = updatedExercises[exerciseId].history.filter(
+      entry => entry.sets.length > 0
+    );
+    // Update lastWeight/lastReps
+    const history = updatedExercises[exerciseId].history;
+    if (history.length > 0) {
+      const lastEntry = history[history.length - 1];
+      const bestSet = lastEntry.sets.reduce((best, set) =>
+        set.weight * set.reps > best.weight * best.reps ? set : best
+      );
+      updatedExercises[exerciseId].lastWeight = bestSet.weight;
+      updatedExercises[exerciseId].lastReps = bestSet.reps;
+    }
     setExercises(updatedExercises);
   };
 
@@ -1753,7 +1943,7 @@ const WorkoutTracker = () => {
               borderRadius: '24px',
               padding: '40px'
             }}>
-              <WorkoutCalendar workoutHistory={workoutHistory} />
+              <WorkoutCalendar workoutHistory={workoutHistory} onDayClick={(date) => { setSelectedDayDetail(date); setChangeDateMode(false); setNewDateValue(''); }} />
             </div>
 
             {/* Body Part Progress */}
@@ -2059,109 +2249,141 @@ const WorkoutTracker = () => {
                     }}>
                       History
                     </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {Object.values(exercises).map(exercise => (
-                        <div key={exercise.id} style={{
-                          background: 'rgba(10, 6, 4, 0.4)',
-                          backdropFilter: 'blur(20px)',
-                          border: '1px solid rgba(205, 160, 110, 0.1)',
-                          borderRadius: '20px',
-                          padding: '28px'
-                        }}>
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '20px'
-                          }}>
-                            <h4 style={{
-                              margin: 0,
-                              fontSize: '18px',
-                              letterSpacing: '0.3px',
-                              fontWeight: 300,
-                              color: '#f5f1ed'
-                            }}>
-                              {exercise.name}
-                            </h4>
-                            <div style={{
-                              background: 'rgba(205, 160, 110, 0.1)',
-                              padding: '6px 12px',
-                              borderRadius: '10px',
-                              fontSize: '10px',
-                              letterSpacing: '1px',
-                              color: '#d4a574',
-                              fontWeight: 300
-                            }}>
-                              {exercise.bodyPart}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      {(() => {
+                        // Group all exercises by date
+                        const dateMap = {};
+                        Object.values(exercises).forEach(exercise => {
+                          if (exercise.history) {
+                            exercise.history.forEach(entry => {
+                              if (!dateMap[entry.date]) {
+                                dateMap[entry.date] = [];
+                              }
+                              dateMap[entry.date].push({
+                                exerciseId: exercise.id,
+                                exerciseName: exercise.name,
+                                bodyPart: exercise.bodyPart,
+                                sets: entry.sets
+                              });
+                            });
+                          }
+                        });
+                        const sortedDates = Object.keys(dateMap).sort((a, b) => b.localeCompare(a));
+
+                        if (sortedDates.length === 0) {
+                          return (
+                            <div style={{ textAlign: 'center', padding: '30px', color: '#8b7566', fontSize: '13px' }}>
+                              No workout history yet
                             </div>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {exercise.history && exercise.history.length > 0 ? (
-                              exercise.history.slice().reverse().map((entry, idx) => (
-                              <div key={idx} style={{
-                                background: 'rgba(205, 160, 110, 0.02)',
-                                padding: '14px 16px',
-                                borderRadius: '12px'
+                          );
+                        }
+
+                        return sortedDates.map(date => {
+                          const dayWorkout = workoutHistory.find(w => w.date === date);
+                          return (
+                            <div key={date} style={{
+                              background: 'rgba(10, 6, 4, 0.4)',
+                              backdropFilter: 'blur(20px)',
+                              border: '1px solid rgba(205, 160, 110, 0.1)',
+                              borderRadius: '20px',
+                              padding: '28px'
+                            }}>
+                              {/* Date header with bulk actions */}
+                              <div style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                marginBottom: '20px', paddingBottom: '16px',
+                                borderBottom: '1px solid rgba(205, 160, 110, 0.08)'
                               }}>
-                                <div style={{ 
-                                  fontSize: '12px', 
-                                  color: '#8b8175', 
-                                  fontWeight: 300,
-                                  marginBottom: '10px'
-                                }}>
-                                  {new Date(entry.date).toLocaleDateString()}
-                                </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                                  {entry.sets.map((set, setIdx) => (
-                                    <span key={setIdx} style={{ 
-                                      background: 'rgba(205, 160, 110, 0.1)', 
-                                      padding: '4px 10px', 
-                                      borderRadius: '6px',
-                                      fontSize: '12px',
-                                      color: '#f5f1ed',
-                                      fontWeight: 300
-                                    }}>
-                                      {set.weight}kg × {set.reps}
+                                <div>
+                                  <h4 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 300, color: '#d4a574' }}>
+                                    {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                                  </h4>
+                                  {dayWorkout && (
+                                    <span style={{ fontSize: '11px', color: '#8b7566', fontWeight: 200 }}>
+                                      {dayWorkout.type}
                                     </span>
-                                  ))}
+                                  )}
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
                                   <button
-                                    onClick={() => deleteHistoryEntry(exercise.id, entry.date)}
+                                    onClick={() => { setSelectedDayDetail(date); setChangeDateMode(true); setNewDateValue(''); }}
                                     style={{
-                                      background: 'rgba(184, 125, 94, 0.08)',
-                                      border: '1px solid rgba(184, 125, 94, 0.2)',
-                                      padding: '6px 14px',
-                                      borderRadius: '8px',
-                                      color: '#b87d5e',
-                                      cursor: 'pointer',
-                                      fontSize: '11px',
-                                      fontFamily: "'Inter', sans-serif",
-                                      fontWeight: 400,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '6px'
+                                      background: 'rgba(205, 160, 110, 0.08)',
+                                      border: '1px solid rgba(205, 160, 110, 0.15)',
+                                      padding: '6px 14px', borderRadius: '8px',
+                                      color: '#cda06e', cursor: 'pointer', fontSize: '11px',
+                                      fontFamily: "'Inter', sans-serif", fontWeight: 400,
+                                      display: 'flex', alignItems: 'center', gap: '6px'
+                                    }}
+                                  >
+                                    <Calendar size={11} strokeWidth={1.5} />
+                                    Change Date
+                                  </button>
+                                  <button
+                                    onClick={() => deleteEntireDay(date)}
+                                    style={{
+                                      background: 'rgba(244, 67, 54, 0.08)',
+                                      border: '1px solid rgba(244, 67, 54, 0.15)',
+                                      padding: '6px 14px', borderRadius: '8px',
+                                      color: '#E57373', cursor: 'pointer', fontSize: '11px',
+                                      fontFamily: "'Inter', sans-serif", fontWeight: 400,
+                                      display: 'flex', alignItems: 'center', gap: '6px'
                                     }}
                                   >
                                     <X size={11} strokeWidth={1.5} />
-                                    Delete
+                                    Delete Day
                                   </button>
                                 </div>
                               </div>
-                            ))
-                            ) : (
-                              <div style={{
-                                textAlign: 'center',
-                                padding: '30px',
-                                color: '#8b7566',
-                                fontSize: '13px'
-                              }}>
-                                No workout history yet
+
+                              {/* Exercises for this date */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {dateMap[date].map((item, idx) => (
+                                  <div key={idx} style={{
+                                    background: 'rgba(205, 160, 110, 0.02)',
+                                    padding: '14px 16px',
+                                    borderRadius: '12px'
+                                  }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                      <span style={{ fontSize: '14px', fontWeight: 300, color: '#f5f1ed' }}>{item.exerciseName}</span>
+                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{
+                                          background: 'rgba(205, 160, 110, 0.1)', padding: '3px 8px',
+                                          borderRadius: '6px', fontSize: '10px', color: '#8b7566', letterSpacing: '0.5px'
+                                        }}>{item.bodyPart}</span>
+                                        <button
+                                          onClick={() => deleteHistoryEntry(item.exerciseId, date)}
+                                          style={{
+                                            background: 'rgba(184, 125, 94, 0.08)',
+                                            border: '1px solid rgba(184, 125, 94, 0.15)',
+                                            padding: '4px 10px', borderRadius: '6px',
+                                            color: '#b87d5e', cursor: 'pointer', fontSize: '10px',
+                                            fontFamily: "'Inter', sans-serif", fontWeight: 400,
+                                            display: 'flex', alignItems: 'center', gap: '4px'
+                                          }}
+                                        >
+                                          <X size={10} strokeWidth={1.5} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                      {item.sets.map((set, setIdx) => (
+                                        <span key={setIdx} style={{
+                                          background: 'rgba(205, 160, 110, 0.1)',
+                                          padding: '4px 10px', borderRadius: '6px',
+                                          fontSize: '12px', color: '#f5f1ed', fontWeight: 300
+                                        }}>
+                                          {set.weight}kg × {set.reps}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 )}
@@ -3539,6 +3761,112 @@ const WorkoutTracker = () => {
                             </div>
                           </div>
                           
+                          {/* Bulk Adjust History Weights */}
+                          {editingExercise.history && editingExercise.history.length > 0 && (
+                            <div style={{
+                              background: 'rgba(205, 160, 110, 0.03)',
+                              border: '1px solid rgba(205, 160, 110, 0.1)',
+                              borderRadius: '12px',
+                              padding: '16px'
+                            }}>
+                              {!bulkWeightAdjustMode ? (
+                                <button
+                                  onClick={() => { setBulkWeightAdjustMode(true); setBulkWeightAdjustValue(''); setBulkWeightAdjustType('offset'); }}
+                                  style={{
+                                    background: 'rgba(205, 160, 110, 0.06)',
+                                    border: '1px solid rgba(205, 160, 110, 0.15)',
+                                    padding: '10px 18px', borderRadius: '10px',
+                                    color: '#cda06e', cursor: 'pointer', fontSize: '12px',
+                                    fontFamily: "'Inter', sans-serif", fontWeight: 400,
+                                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                                    justifyContent: 'center', letterSpacing: '0.3px'
+                                  }}
+                                >
+                                  <TrendingUp size={13} strokeWidth={1.5} />
+                                  Bulk Adjust All Historical Weights
+                                </button>
+                              ) : (
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                    <label style={{ fontSize: '10px', color: '#8b7566', letterSpacing: '1px', fontWeight: 500 }}>
+                                      ADJUST ALL HISTORY WEIGHTS
+                                    </label>
+                                    <button
+                                      onClick={() => { setBulkWeightAdjustMode(false); setBulkWeightAdjustValue(''); }}
+                                      style={{ background: 'transparent', border: 'none', color: '#8b7566', cursor: 'pointer', padding: '4px' }}
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                    <button
+                                      onClick={() => setBulkWeightAdjustType('offset')}
+                                      style={{
+                                        flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
+                                        fontFamily: "'Inter', sans-serif",
+                                        background: bulkWeightAdjustType === 'offset' ? 'rgba(205, 160, 110, 0.15)' : 'rgba(205, 160, 110, 0.04)',
+                                        border: `1px solid rgba(205, 160, 110, ${bulkWeightAdjustType === 'offset' ? '0.3' : '0.1'})`,
+                                        color: bulkWeightAdjustType === 'offset' ? '#d4a574' : '#8b7566'
+                                      }}
+                                    >
+                                      +/- kg
+                                    </button>
+                                    <button
+                                      onClick={() => setBulkWeightAdjustType('multiply')}
+                                      style={{
+                                        flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
+                                        fontFamily: "'Inter', sans-serif",
+                                        background: bulkWeightAdjustType === 'multiply' ? 'rgba(205, 160, 110, 0.15)' : 'rgba(205, 160, 110, 0.04)',
+                                        border: `1px solid rgba(205, 160, 110, ${bulkWeightAdjustType === 'multiply' ? '0.3' : '0.1'})`,
+                                        color: bulkWeightAdjustType === 'multiply' ? '#d4a574' : '#8b7566'
+                                      }}
+                                    >
+                                      × multiply
+                                    </button>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <input
+                                      type="number"
+                                      value={bulkWeightAdjustValue}
+                                      onChange={(e) => setBulkWeightAdjustValue(e.target.value)}
+                                      placeholder={bulkWeightAdjustType === 'offset' ? 'e.g. -20 or +5' : 'e.g. 0.7 or 1.2'}
+                                      step={bulkWeightAdjustType === 'offset' ? '0.5' : '0.05'}
+                                      style={{
+                                        flex: 1,
+                                        background: 'rgba(10, 6, 4, 0.4)',
+                                        border: '1px solid rgba(205, 160, 110, 0.2)',
+                                        padding: '10px 12px', borderRadius: '10px',
+                                        color: '#f5f1ed', fontSize: '13px'
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => bulkAdjustHistoryWeights(editingExercise.id, bulkWeightAdjustType, bulkWeightAdjustValue)}
+                                      disabled={!bulkWeightAdjustValue}
+                                      style={{
+                                        background: bulkWeightAdjustValue ? 'rgba(244, 162, 97, 0.15)' : 'rgba(205, 160, 110, 0.05)',
+                                        border: '1px solid rgba(244, 162, 97, 0.25)',
+                                        padding: '10px 18px', borderRadius: '10px',
+                                        color: bulkWeightAdjustValue ? '#f4a261' : '#6b5d52',
+                                        cursor: bulkWeightAdjustValue ? 'pointer' : 'not-allowed',
+                                        fontSize: '12px', fontFamily: "'Inter', sans-serif", fontWeight: 500
+                                      }}
+                                    >
+                                      Apply
+                                    </button>
+                                  </div>
+                                  {bulkWeightAdjustValue && (
+                                    <div style={{ marginTop: '10px', fontSize: '11px', color: '#8b7566', fontWeight: 200 }}>
+                                      Preview: {bulkWeightAdjustType === 'offset'
+                                        ? `All weights ${parseFloat(bulkWeightAdjustValue) >= 0 ? '+' : ''}${bulkWeightAdjustValue}kg`
+                                        : `All weights ×${bulkWeightAdjustValue}`
+                                      } across {editingExercise.history.length} session{editingExercise.history.length !== 1 ? 's' : ''}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                             <button
                               onClick={() => {
@@ -3550,6 +3878,7 @@ const WorkoutTracker = () => {
                                 };
                                 setExercises(updated);
                                 setEditingExercise(null);
+                                setBulkWeightAdjustMode(false);
                               }}
                               style={{
                                 flex: 1,
@@ -3572,7 +3901,7 @@ const WorkoutTracker = () => {
                             </button>
                             
                             <button
-                              onClick={() => setEditingExercise(null)}
+                              onClick={() => { setEditingExercise(null); setBulkWeightAdjustMode(false); }}
                               style={{
                                 background: 'rgba(184, 125, 94, 0.1)',
                                 border: '1px solid rgba(184, 125, 94, 0.2)',
@@ -3909,6 +4238,299 @@ const WorkoutTracker = () => {
           </div>
         )}
       </div>
+
+      {/* Day Detail Modal */}
+      {selectedDayDetail && (() => {
+        const dayWorkout = workoutHistory.find(w => w.date === selectedDayDetail);
+        const dayExercises = Object.values(exercises).filter(ex =>
+          ex.history && ex.history.some(entry => entry.date === selectedDayDetail)
+        ).map(ex => ({
+          ...ex,
+          daySets: ex.history.find(entry => entry.date === selectedDayDetail)?.sets || []
+        }));
+        const formattedDate = new Date(selectedDayDetail + 'T00:00:00').toLocaleDateString('en-US', {
+          weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+        });
+
+        return (
+          <div
+            onClick={() => { setSelectedDayDetail(null); setChangeDateMode(false); setEditingHistorySet(null); }}
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              animation: 'fadeIn 0.3s ease'
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#1a1410',
+                border: '1px solid rgba(205, 160, 110, 0.2)',
+                borderRadius: '24px',
+                padding: '36px',
+                maxWidth: '520px',
+                width: '90%',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 300, color: '#d4a574' }}>
+                    {formattedDate}
+                  </h3>
+                  {dayWorkout && (
+                    <div style={{ fontSize: '13px', color: '#8b7566', fontWeight: 200 }}>
+                      {dayWorkout.type} · {dayExercises.length} exercise{dayExercises.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setSelectedDayDetail(null); setChangeDateMode(false); setEditingHistorySet(null); }}
+                  style={{
+                    background: 'rgba(205, 160, 110, 0.08)',
+                    border: '1px solid rgba(205, 160, 110, 0.15)',
+                    borderRadius: '50%',
+                    width: '36px', height: '36px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: '#8b7566'
+                  }}
+                >
+                  <X size={16} strokeWidth={1.5} />
+                </button>
+              </div>
+
+              {/* Exercises list - editable */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
+                {dayExercises.map(ex => (
+                  <div key={ex.id} style={{
+                    background: 'rgba(205, 160, 110, 0.04)',
+                    border: '1px solid rgba(205, 160, 110, 0.08)',
+                    borderRadius: '14px',
+                    padding: '16px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 300, color: '#f5f1ed' }}>{ex.name}</span>
+                      <span style={{
+                        fontSize: '10px', letterSpacing: '0.5px', color: '#8b7566',
+                        background: 'rgba(205, 160, 110, 0.08)', padding: '3px 8px', borderRadius: '6px'
+                      }}>{ex.bodyPart}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {ex.daySets.map((set, i) => (
+                        editingHistorySet && editingHistorySet.exerciseId === ex.id && editingHistorySet.setIndex === i ? (
+                          <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <input
+                              type="number"
+                              value={editingHistorySet.weight}
+                              onChange={(e) => setEditingHistorySet({ ...editingHistorySet, weight: e.target.value })}
+                              step="0.5"
+                              style={{
+                                width: '80px', background: 'rgba(10, 6, 4, 0.6)',
+                                border: '1px solid rgba(205, 160, 110, 0.3)', padding: '8px 10px',
+                                borderRadius: '8px', color: '#f5f1ed', fontSize: '13px'
+                              }}
+                            />
+                            <span style={{ color: '#6b5d52', fontSize: '12px' }}>kg ×</span>
+                            <input
+                              type="number"
+                              value={editingHistorySet.reps}
+                              onChange={(e) => setEditingHistorySet({ ...editingHistorySet, reps: e.target.value })}
+                              style={{
+                                width: '60px', background: 'rgba(10, 6, 4, 0.6)',
+                                border: '1px solid rgba(205, 160, 110, 0.3)', padding: '8px 10px',
+                                borderRadius: '8px', color: '#f5f1ed', fontSize: '13px'
+                              }}
+                            />
+                            <button
+                              onClick={() => {
+                                updateHistoryEntry(ex.id, selectedDayDetail, i, parseFloat(editingHistorySet.weight) || 0, parseFloat(editingHistorySet.reps) || 0);
+                                setEditingHistorySet(null);
+                              }}
+                              style={{
+                                background: 'rgba(76, 175, 80, 0.15)', border: '1px solid rgba(76, 175, 80, 0.3)',
+                                padding: '6px 12px', borderRadius: '8px', color: '#81C784',
+                                cursor: 'pointer', fontSize: '11px', fontFamily: "'Inter', sans-serif"
+                              }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingHistorySet(null)}
+                              style={{
+                                background: 'transparent', border: '1px solid rgba(205, 160, 110, 0.15)',
+                                padding: '6px 10px', borderRadius: '8px', color: '#8b7566',
+                                cursor: 'pointer', fontSize: '11px', fontFamily: "'Inter', sans-serif"
+                              }}
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span
+                              onClick={() => setEditingHistorySet({ exerciseId: ex.id, setIndex: i, weight: set.weight, reps: set.reps })}
+                              style={{
+                                background: 'rgba(205, 160, 110, 0.1)',
+                                padding: '6px 12px', borderRadius: '8px',
+                                fontSize: '12px', color: '#d4a574', fontWeight: 300,
+                                cursor: 'pointer', transition: 'all 0.2s ease',
+                                border: '1px solid transparent'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.border = '1px solid rgba(205, 160, 110, 0.3)'; e.currentTarget.style.background = 'rgba(205, 160, 110, 0.15)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.border = '1px solid transparent'; e.currentTarget.style.background = 'rgba(205, 160, 110, 0.1)'; }}
+                              title="Click to edit"
+                            >
+                              <Edit2 size={10} strokeWidth={1.5} style={{ marginRight: '6px', opacity: 0.5 }} />
+                              {set.weight}kg × {set.reps}
+                            </span>
+                            {ex.daySets.length > 1 && (
+                              <button
+                                onClick={() => removeHistorySet(ex.id, selectedDayDetail, i)}
+                                style={{
+                                  background: 'transparent', border: 'none', padding: '4px',
+                                  color: '#6b5d52', cursor: 'pointer', opacity: 0.5,
+                                  display: 'flex', alignItems: 'center'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#E57373'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = '#6b5d52'; }}
+                                title="Remove set"
+                              >
+                                <X size={12} strokeWidth={1.5} />
+                              </button>
+                            )}
+                          </div>
+                        )
+                      ))}
+                      <button
+                        onClick={() => addHistorySet(ex.id, selectedDayDetail)}
+                        style={{
+                          background: 'transparent', border: '1px dashed rgba(205, 160, 110, 0.15)',
+                          padding: '6px 12px', borderRadius: '8px', color: '#6b5d52',
+                          cursor: 'pointer', fontSize: '11px', fontFamily: "'Inter', sans-serif",
+                          display: 'flex', alignItems: 'center', gap: '4px', alignSelf: 'flex-start',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = '#cda06e'; e.currentTarget.style.borderColor = 'rgba(205, 160, 110, 0.3)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = '#6b5d52'; e.currentTarget.style.borderColor = 'rgba(205, 160, 110, 0.15)'; }}
+                      >
+                        <Plus size={11} strokeWidth={1.5} />
+                        Add Set
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Change Date section */}
+              {changeDateMode ? (
+                <div style={{
+                  background: 'rgba(205, 160, 110, 0.04)',
+                  border: '1px solid rgba(205, 160, 110, 0.15)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  marginBottom: '16px'
+                }}>
+                  <label style={{
+                    fontSize: '11px', color: '#8b8175', display: 'flex', alignItems: 'center',
+                    gap: '6px', marginBottom: '12px', letterSpacing: '1px', fontWeight: 500
+                  }}>
+                    <Calendar size={12} strokeWidth={1.5} />
+                    MOVE TO DATE
+                  </label>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                      type="date"
+                      value={newDateValue}
+                      onChange={(e) => setNewDateValue(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      style={{ fontSize: '14px', cursor: 'pointer', flex: 1 }}
+                    />
+                    <button
+                      onClick={() => changeWorkoutDate(selectedDayDetail, newDateValue)}
+                      disabled={!newDateValue || newDateValue === selectedDayDetail}
+                      style={{
+                        background: (!newDateValue || newDateValue === selectedDayDetail)
+                          ? 'rgba(205, 160, 110, 0.05)'
+                          : 'linear-gradient(135deg, rgba(205, 160, 110, 0.2) 0%, rgba(205, 160, 110, 0.1) 100%)',
+                        border: '1px solid rgba(205, 160, 110, 0.2)',
+                        padding: '10px 20px', borderRadius: '12px',
+                        color: (!newDateValue || newDateValue === selectedDayDetail) ? '#6b5d52' : '#cda06e',
+                        fontWeight: 400, cursor: (!newDateValue || newDateValue === selectedDayDetail) ? 'not-allowed' : 'pointer',
+                        fontSize: '13px', fontFamily: "'Inter', sans-serif", letterSpacing: '0.5px'
+                      }}
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => { setChangeDateMode(false); setNewDateValue(''); }}
+                      style={{
+                        background: 'rgba(184, 125, 94, 0.08)',
+                        border: '1px solid rgba(184, 125, 94, 0.15)',
+                        padding: '10px 16px', borderRadius: '12px',
+                        color: '#8b7566', cursor: 'pointer',
+                        fontSize: '13px', fontFamily: "'Inter', sans-serif"
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => setChangeDateMode(true)}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(205, 160, 110, 0.08)',
+                    border: '1px solid rgba(205, 160, 110, 0.2)',
+                    padding: '14px 20px', borderRadius: '16px',
+                    color: '#cda06e', fontWeight: 400, cursor: 'pointer',
+                    fontSize: '13px', fontFamily: "'Inter', sans-serif",
+                    letterSpacing: '0.5px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: '8px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(205, 160, 110, 0.15)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(205, 160, 110, 0.08)'; }}
+                >
+                  <Calendar size={14} strokeWidth={1.5} />
+                  Change Date
+                </button>
+                <button
+                  onClick={() => deleteEntireDay(selectedDayDetail)}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(244, 67, 54, 0.08)',
+                    border: '1px solid rgba(244, 67, 54, 0.2)',
+                    padding: '14px 20px', borderRadius: '16px',
+                    color: '#E57373', fontWeight: 400, cursor: 'pointer',
+                    fontSize: '13px', fontFamily: "'Inter', sans-serif",
+                    letterSpacing: '0.5px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: '8px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(244, 67, 54, 0.15)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(244, 67, 54, 0.08)'; }}
+                >
+                  <X size={14} strokeWidth={1.5} />
+                  Delete Day
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
