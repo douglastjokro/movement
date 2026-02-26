@@ -40,27 +40,30 @@ const WorkoutCalendar = ({ workoutHistory, onDayClick }) => {
   const getMonthStats = () => {
     const { daysInMonth, year, month } = getDaysInMonth(selectedMonth);
     const workoutDates = getWorkoutDatesInMonth();
-    
-    // Training start date: December 9, 2025 (using local timezone)
-    const trainingStartDate = new Date(2025, 11, 9); // Month is 0-indexed, so 11 = December
-    
-    let expectedCount = 0;
-    let completedCount = workoutDates.length;
-    
-    // Count expected workout days in this month (only after training start date)
+
+    const trainingStartDate = new Date(2025, 11, 9);
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+    const todayDate = isCurrentMonth ? today.getDate() : -1;
+
+    let completedCount = 0;
+    let missedCount = 0;
+
+    // Use the exact same logic as the calendar to count green (attended) and red (missed) days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const dayOfWeek = date.getDay();
-      const isPastDate = date <= new Date();
+      const isExpectedDay = expectedDays.includes(dayOfWeek);
+      const hasWorkout = workoutDates.includes(day);
+      const isPast = date < today || (isCurrentMonth && day < todayDate);
+      const isToday = isCurrentMonth && day === todayDate;
       const isAfterStartDate = date >= trainingStartDate;
-      
-      if (expectedDays.includes(dayOfWeek) && isPastDate && isAfterStartDate) {
-        expectedCount++;
-      }
+
+      if (hasWorkout) completedCount++;
+      if (isExpectedDay && isPast && !hasWorkout && !isToday && isAfterStartDate) missedCount++;
     }
-    
-    const missedCount = Math.max(0, expectedCount - completedCount);
-    
+
+    const expectedCount = completedCount + missedCount;
     return { expectedCount, completedCount, missedCount };
   };
   
