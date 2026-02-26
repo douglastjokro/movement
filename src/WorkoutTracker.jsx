@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move, ChevronLeft } from 'lucide-react';
 
+// Returns today's date as "YYYY-MM-DD" in local timezone (not UTC)
+const getLocalDateStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
 // Workout Calendar Component
 const WorkoutCalendar = ({ workoutHistory, onDayClick }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -25,10 +31,10 @@ const WorkoutCalendar = ({ workoutHistory, onDayClick }) => {
     const { year, month } = getDaysInMonth(selectedMonth);
     return workoutHistory
       .filter(w => {
-        const date = new Date(w.date);
+        const date = new Date(w.date + 'T00:00:00');
         return date.getFullYear() === year && date.getMonth() === month;
       })
-      .map(w => new Date(w.date).getDate());
+      .map(w => new Date(w.date + 'T00:00:00').getDate());
   };
   
   const getMonthStats = () => {
@@ -505,7 +511,7 @@ const WorkoutTracker = () => {
   const [selectedDay, setSelectedDay] = useState('Push');
   const [workoutData, setWorkoutData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateStr());
   const [viewingHistory, setViewingHistory] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
   const [gapiLoaded, setGapiLoaded] = useState(false);
@@ -1306,7 +1312,7 @@ const WorkoutTracker = () => {
     }
     
     setCurrentWorkout({});
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(getLocalDateStr());
     setActiveTab('dashboard');
   };
 
@@ -2110,7 +2116,7 @@ const WorkoutTracker = () => {
                         type="date"
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
-                        max={new Date().toISOString().split('T')[0]}
+                        max={getLocalDateStr()}
                         style={{
                           fontSize: '14px',
                           cursor: 'pointer',
@@ -4451,7 +4457,7 @@ const WorkoutTracker = () => {
                       type="date"
                       value={newDateValue}
                       onChange={(e) => setNewDateValue(e.target.value)}
-                      max={new Date().toISOString().split('T')[0]}
+                      max={getLocalDateStr()}
                       style={{ fontSize: '14px', cursor: 'pointer', flex: 1 }}
                     />
                     <button
