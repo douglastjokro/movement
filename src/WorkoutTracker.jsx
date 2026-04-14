@@ -1,3 +1,4 @@
+import { supabase } from './supabaseClient';
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, TrendingUp, Dumbbell, Calendar, Menu, ChevronRight, Save, Plus, X, Edit2, BarChart3, Clock, Target, Heart, User, Mountain, Zap, Layout, Footprints, ArrowUp, ArrowDown, Move, ChevronLeft } from 'lucide-react';
@@ -505,23 +506,19 @@ const WorkoutCalendar = ({ workoutHistory, onDayClick }) => {
 
 const WorkoutTracker = () => {
   // Google Drive Configuration
-  const GOOGLE_CLIENT_ID = '1032172807789-dgk74040rk2c8a3njf2nlon2r6r5647n.apps.googleusercontent.com';
-  const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-  const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [gDriveConnected, setGDriveConnected] = useState(false);
+  const [session, setSession] = useState(null);
+  const [isLoadedFromCloud, setIsLoadedFromCloud] = useState(false);
+  const gDriveConnected = !!session;
   const [selectedDay, setSelectedDay] = useState('Push');
   const [workoutData, setWorkoutData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(getLocalDateStr());
   const [viewingHistory, setViewingHistory] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
-  const [gapiLoaded, setGapiLoaded] = useState(false);
-  const [gisLoaded, setGisLoaded] = useState(false);
-  const [tokenClient, setTokenClient] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
-  const [isLoadedFromDrive, setIsLoadedFromDrive] = useState(false);
+  const gapiLoaded = true;
+  const gisLoaded = true;
   
   const [exercises, setExercises] = useState({
     'hammer-curl': {
@@ -642,74 +639,21 @@ const WorkoutTracker = () => {
   const [editingHistorySet, setEditingHistorySet] = useState(null); // { exerciseId, setIndex, weight, reps }
 
   // Load Google API on component mount
+  // Initialize Supabase auth
   useEffect(() => {
-    const loadGoogleAPIs = () => {
-      console.log('🔄 Loading Google APIs...');
-      
-      // Load GAPI for Drive API
-      if (window.gapi) {
-        window.gapi.load('client', async () => {
-          try {
-            console.log('📦 Initializing gapi client...');
-            await window.gapi.client.init({
-              apiKey: '', // Not needed for OAuth
-              discoveryDocs: DISCOVERY_DOCS,
-            });
-            console.log('✅ GAPI client initialized');
-            setGapiLoaded(true);
-          } catch (error) {
-            console.error('❌ Error initializing gapi client:', error);
-          }
-        });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) loadFromSupabase(session.user.id);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        loadFromSupabase(session.user.id);
+      } else {
+        setIsLoadedFromCloud(false);
       }
-      
-      // Wait for Google Identity Services to load
-      const checkGIS = setInterval(() => {
-        if (window.google && window.google.accounts) {
-          clearInterval(checkGIS);
-          console.log('📦 Initializing Google Identity Services...');
-          
-          try {
-            const client = window.google.accounts.oauth2.initTokenClient({
-              client_id: GOOGLE_CLIENT_ID,
-              scope: SCOPES,
-              callback: (response) => {
-                console.log('🔐 Token response received');
-                if (response.error) {
-                  console.error('❌ Token error:', response);
-                  alert('Sign in failed: ' + response.error);
-                  setIsLoading(false);
-                  return;
-                }
-                if (response.access_token) {
-                  console.log('✅ Access token received');
-                  setAccessToken(response.access_token);
-                  setGDriveConnected(true);
-                  setIsLoading(false);
-                  loadFromGoogleDrive(response.access_token);
-                }
-              },
-            });
-            setTokenClient(client);
-            setGisLoaded(true);
-            console.log('✅ Google Identity Services initialized');
-          } catch (error) {
-            console.error('❌ Error initializing GIS:', error);
-          }
-        }
-      }, 100);
-      
-      // Timeout after 10 seconds
-      setTimeout(() => {
-        clearInterval(checkGIS);
-        if (!window.google || !window.google.accounts) {
-          console.error('❌ Google Identity Services failed to load');
-        }
-      }, 10000);
-    };
-    
-    // Wait a bit for scripts to load
-    setTimeout(loadGoogleAPIs, 500);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   // Save to localStorage as backup
@@ -747,263 +691,111 @@ const WorkoutTracker = () => {
     }
   }, []);
 
-  // Google Drive Sign In (NEW METHOD)
+  // Sign in with Google via Supabase OAuth
   const connectGoogleDrive = async () => {
-    console.log('🔐 Sign in button clicked');
-    console.log('gapiLoaded:', gapiLoaded, 'gisLoaded:', gisLoaded);
-    
-    if (!gapiLoaded || !gisLoaded || !tokenClient) {
-      alert('Google services are still loading. Please wait a few seconds and try again.\n\nIf this persists, refresh the page.');
-      return;
-    }
-
     setIsLoading(true);
-    console.log('🔓 Requesting access token...');
-    
     try {
-      // This triggers the OAuth popup
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin }
+      });
+      if (error) throw error;
     } catch (error) {
-      console.error('❌ Error requesting token:', error);
-      alert('Failed to open sign-in popup. Check if pop-ups are blocked.');
+      console.error('Sign-in error:', error);
+      alert('Sign in failed: ' + (error.message || 'unknown error'));
       setIsLoading(false);
     }
   };
 
-  // Sign out function
-  const signOutGoogleDrive = () => {
-    if (accessToken) {
-      // Revoke the token
-      window.google.accounts.oauth2.revoke(accessToken, () => {
-        console.log('Token revoked');
-      });
-      
-      setAccessToken(null);
-      setGDriveConnected(false);
-      
-      console.log('✅ Signed out from Google Drive');
-    }
+  const signOutGoogleDrive = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setIsLoadedFromCloud(false);
+    console.log('Signed out');
   };
 
-  // Save to Google Drive (in visible "Movement App" folder)
-  const saveToGoogleDrive = async () => {
-    if (!gDriveConnected || !accessToken) return;
-
-    const data = {
-      exercises,
-      programs,
-      currentWorkout,
-      workoutHistory,
-      lastUpdated: new Date().toISOString()
+  const saveToSupabase = async () => {
+    if (!session) return;
+    const payload = {
+      user_id: session.user.id,
+      data: {
+        exercises,
+        programs,
+        currentWorkout,
+        workoutHistory,
+        lastUpdated: new Date().toISOString()
+      },
+      updated_at: new Date().toISOString()
     };
-
-    const fileContent = JSON.stringify(data, null, 2);
-    const fileName = 'movement-workout-data.json';
-    const folderName = 'Movement App';
-
     try {
-      console.log('💾 Saving to Google Drive...');
-      
-      // First, find or create the "Movement App" folder
-      const folderSearch = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
-        }
-      );
-
-      const folderResults = await folderSearch.json();
-      let folderId;
-
-      if (folderResults.files && folderResults.files.length > 0) {
-        // Folder exists
-        folderId = folderResults.files[0].id;
-        console.log('📁 Found existing folder:', folderId);
-      } else {
-        // Create folder
-        console.log('📁 Creating new folder...');
-        const folderMetadata = {
-          name: folderName,
-          mimeType: 'application/vnd.google-apps.folder'
-        };
-
-        const createFolderResponse = await fetch(
-          'https://www.googleapis.com/drive/v3/files',
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(folderMetadata)
-          }
-        );
-
-        const newFolder = await createFolderResponse.json();
-        folderId = newFolder.id;
-        console.log('✅ Created folder:', folderId);
-      }
-
-      // Now check if file exists in the folder
-      const fileSearch = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${folderId}' in parents and trashed=false`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
-        }
-      );
-
-      const fileResults = await fileSearch.json();
-      const fileId = fileResults.files && fileResults.files.length > 0 ? fileResults.files[0].id : null;
-
-      if (fileId) {
-        // Update existing file
-        console.log('📝 Updating existing file...');
-        await fetch(
-          `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-          {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: fileContent
-          }
-        );
-        console.log('✅ File updated!');
-      } else {
-        // Create new file
-        console.log('📄 Creating new file...');
-        const metadata = {
-          name: fileName,
-          parents: [folderId]
-        };
-
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', new Blob([fileContent], { type: 'application/json' }));
-
-        await fetch(
-          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`
-            },
-            body: form
-          }
-        );
-        console.log('✅ File created!');
-      }
-      
-      console.log('✅ Successfully saved to Google Drive!');
+      console.log('Saving to Supabase...');
+      const { error } = await supabase
+        .from('workout_data')
+        .upsert(payload, { onConflict: 'user_id' });
+      if (error) throw error;
+      console.log('Saved to Supabase');
     } catch (error) {
-      console.error('❌ Error saving to Google Drive:', error);
+      console.error('Save error:', error);
     }
   };
 
-    // Load from Google Drive
-  const loadFromGoogleDrive = async (token = accessToken) => {
-    if (!token) return;
-
-    const fileName = 'movement-workout-data.json';
-    const folderName = 'Movement App';
-
+  const loadFromSupabase = async (userId) => {
+    if (!userId) return;
     try {
-      console.log('📥 Loading from Google Drive...');
-      
-      // Find the "Movement App" folder
-      const folderSearch = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      const folderResults = await folderSearch.json();
-      
-      if (!folderResults.files || folderResults.files.length === 0) {
-        console.log('No folder found yet — first-time sign in');
-        setIsLoadedFromDrive(true);
-        return;
-      }
-
-      const folderId = folderResults.files[0].id;
-      console.log('📁 Found folder:', folderId);
-
-      // Find the file in the folder
-      const fileSearch = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${folderId}' in parents and trashed=false&fields=files(id)`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      const fileResults = await fileSearch.json();
-      
-      if (fileResults.files && fileResults.files.length > 0) {
-        const fileId = fileResults.files[0].id;
-        console.log('📄 Found file:', fileId);
-        
-        // Download file content
-        const contentResponse = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-
-        const data = await contentResponse.json();
-        
-        // Load everything as-is (see notes in the localStorage path).
-        if (data.exercises) setExercises(data.exercises);
-        if (data.programs) setPrograms(data.programs);
-        if (data.currentWorkout) setCurrentWorkout(data.currentWorkout);
-        if (data.workoutHistory) setWorkoutHistory(data.workoutHistory);
-        
-        console.log('Data loaded from Google Drive\!');
-        setIsLoadedFromDrive(true);
+      console.log('Loading from Supabase...');
+      const { data: row, error } = await supabase
+        .from('workout_data')
+        .select('data')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      if (row && row.data) {
+        const d = row.data;
+        if (d.exercises) setExercises(d.exercises);
+        if (d.programs) setPrograms(d.programs);
+        if (d.currentWorkout) setCurrentWorkout(d.currentWorkout);
+        if (d.workoutHistory) setWorkoutHistory(d.workoutHistory);
+        console.log('Data loaded from Supabase');
       } else {
-        console.log('No file found yet — first-time sign in');
-        setIsLoadedFromDrive(true);
+        console.log('No data yet - first-time sign in. Use Import JSON to restore a backup.');
       }
+      setIsLoadedFromCloud(true);
     } catch (error) {
-      console.error('Error loading from Google Drive:', error);
-      // Deliberately NOT setting isLoadedFromDrive here — if the load failed,
-      // we must not let auto-save overwrite the remote file with current (possibly empty) state.
-      alert('Failed to load data from Google Drive. Please refresh and try again.\n\n' +
-            'Auto-save is paused to protect your existing data.');
+      console.error('Load error:', error);
+      alert('Failed to load data from Supabase. Auto-save is paused to protect your data.\n\n' + (error.message || ''));
     }
   };
 
-    // Auto-save to Google Drive when data changes
-  // IMPORTANT: wait until initial load finishes, otherwise we'd overwrite Drive with empty state
+  const handleImportJson = async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const d = JSON.parse(text);
+      const count = (d.workoutHistory || []).length;
+      const exCount = Object.keys(d.exercises || {}).length;
+      if (!window.confirm(
+        'Import ' + exCount + ' exercises and ' + count + ' workouts from "' + file.name + '"?\n\n' +
+        'This will REPLACE your current data. It will then auto-save to Supabase within 2 seconds.'
+      )) return;
+      if (d.exercises) setExercises(d.exercises);
+      if (d.programs) setPrograms(d.programs);
+      if (d.currentWorkout) setCurrentWorkout(d.currentWorkout);
+      if (d.workoutHistory) setWorkoutHistory(d.workoutHistory);
+      alert('Imported ' + exCount + ' exercises and ' + count + ' workouts. Saving to cloud...');
+    } catch (err) {
+      console.error('Import error:', err);
+      alert('Could not import file: ' + err.message);
+    }
+  };
+
   useEffect(() => {
-    if (gDriveConnected && accessToken && isLoadedFromDrive) {
-      const timeoutId = setTimeout(() => {
-        saveToGoogleDrive();
-      }, 2000); // Save 2 seconds after last change
-
+    if (session && isLoadedFromCloud) {
+      const timeoutId = setTimeout(() => { saveToSupabase(); }, 2000);
       return () => clearTimeout(timeoutId);
     }
-  }, [exercises, programs, currentWorkout, gDriveConnected, accessToken, isLoadedFromDrive]);
-
-  const connectGoogleDrive_OLD = async () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setGDriveConnected(true);
-      setIsLoading(false);
-    }, 1500);
-  };
+  }, [exercises, programs, currentWorkout, workoutHistory, session, isLoadedFromCloud]);
 
   const getWorkoutStats = () => {
     const totalWorkouts = workoutHistory.length;
@@ -1724,7 +1516,7 @@ const WorkoutTracker = () => {
               opacity: gapiLoaded ? 1 : 0.5
             }}
           >
-            {isLoading ? 'Connecting...' : (gapiLoaded ? 'Sync Drive' : 'Loading API...')}
+            {isLoading ? 'Redirecting...' : 'Sign In with Google'}
           </button>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1768,6 +1560,30 @@ const WorkoutTracker = () => {
             >
               Sign Out
             </button>
+            <label
+              htmlFor="import-json-input"
+              style={{
+                background: 'rgba(205, 160, 110, 0.08)',
+                border: '1px solid rgba(205, 160, 110, 0.2)',
+                padding: '8px 18px',
+                borderRadius: '24px',
+                color: '#cda06e',
+                fontWeight: 400,
+                fontSize: '12px',
+                letterSpacing: '0.5px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Import JSON
+            </label>
+            <input
+              id="import-json-input"
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              onChange={handleImportJson}
+            />
           </div>
         )}
 
