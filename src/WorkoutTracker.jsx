@@ -521,6 +521,7 @@ const WorkoutTracker = () => {
   const [gisLoaded, setGisLoaded] = useState(false);
   const [tokenClient, setTokenClient] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
+  const [isLoadedFromDrive, setIsLoadedFromDrive] = useState(false);
   
   const [exercises, setExercises] = useState({
     'hammer-curl': {
@@ -728,29 +729,17 @@ const WorkoutTracker = () => {
       try {
         const data = JSON.parse(savedData);
         
-        // Filter exercises to remove history before December 9, 2025 (using local timezone)
-        const trainingStartDate = new Date(2025, 11, 9); // Month is 0-indexed, so 11 = December
+        // Load everything as-is. Previously a Dec 9 2025 date filter dropped entries
+        // before that date AND any with unparseable dates — that was destructive because
+        // the filtered state was then saved back, permanently deleting real data.
         if (data.exercises) {
-          const filteredExercises = {};
-          Object.entries(data.exercises).forEach(([key, exercise]) => {
-            filteredExercises[key] = {
-              ...exercise,
-              history: exercise.history 
-                ? exercise.history.filter(entry => new Date(entry.date) >= trainingStartDate)
-                : []
-            };
-          });
-          setExercises(filteredExercises);
+          setExercises(data.exercises);
         }
-        
         if (data.programs && Object.keys(data.programs).length > 0) {
-          // Only update programs if there's saved data
           setPrograms(data.programs);
         }
         if (data.workoutHistory) {
-          // Filter out workouts before December 9, 2025
-          const filteredHistory = data.workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
-          setWorkoutHistory(filteredHistory);
+          setWorkoutHistory(data.workoutHistory);
         }
       } catch (error) {
         console.error('Error loading from localStorage:', error);
@@ -939,7 +928,8 @@ const WorkoutTracker = () => {
       const folderResults = await folderSearch.json();
       
       if (!folderResults.files || folderResults.files.length === 0) {
-        console.log('ℹ️ No folder found yet');
+        console.log('No folder found yet — first-time sign in');
+        setIsLoadedFromDrive(true);
         return;
       }
 
@@ -974,48 +964,38 @@ const WorkoutTracker = () => {
 
         const data = await contentResponse.json();
         
-        // Filter exercises to remove history before December 9, 2025 (using local timezone)
-        const trainingStartDate = new Date(2025, 11, 9); // Month is 0-indexed, so 11 = December
-        if (data.exercises) {
-          const filteredExercises = {};
-          Object.entries(data.exercises).forEach(([key, exercise]) => {
-            filteredExercises[key] = {
-              ...exercise,
-              history: exercise.history 
-                ? exercise.history.filter(entry => new Date(entry.date) >= trainingStartDate)
-                : []
-            };
-          });
-          setExercises(filteredExercises);
-        }
-        
+        // Load everything as-is (see notes in the localStorage path).
+        if (data.exercises) setExercises(data.exercises);
         if (data.programs) setPrograms(data.programs);
         if (data.currentWorkout) setCurrentWorkout(data.currentWorkout);
-        if (data.workoutHistory) {
-          // Filter out workouts before December 9, 2025
-          const filteredHistory = data.workoutHistory.filter(w => new Date(w.date) >= trainingStartDate);
-          setWorkoutHistory(filteredHistory);
-        }
+        if (data.workoutHistory) setWorkoutHistory(data.workoutHistory);
         
-        console.log('✅ Data loaded from Google Drive!');
+        console.log('Data loaded from Google Drive\!');
+        setIsLoadedFromDrive(true);
       } else {
-        console.log('ℹ️ No file found yet');
+        console.log('No file found yet — first-time sign in');
+        setIsLoadedFromDrive(true);
       }
     } catch (error) {
-      console.error('❌ Error loading from Google Drive:', error);
+      console.error('Error loading from Google Drive:', error);
+      // Deliberately NOT setting isLoadedFromDrive here — if the load failed,
+      // we must not let auto-save overwrite the remote file with current (possibly empty) state.
+      alert('Failed to load data from Google Drive. Please refresh and try again.\n\n' +
+            'Auto-save is paused to protect your existing data.');
     }
   };
 
     // Auto-save to Google Drive when data changes
+  // IMPORTANT: wait until initial load finishes, otherwise we'd overwrite Drive with empty state
   useEffect(() => {
-    if (gDriveConnected && accessToken) {
+    if (gDriveConnected && accessToken && isLoadedFromDrive) {
       const timeoutId = setTimeout(() => {
         saveToGoogleDrive();
       }, 2000); // Save 2 seconds after last change
 
       return () => clearTimeout(timeoutId);
     }
-  }, [exercises, programs, currentWorkout, gDriveConnected, accessToken]);
+  }, [exercises, programs, currentWorkout, gDriveConnected, accessToken, isLoadedFromDrive]);
 
   const connectGoogleDrive_OLD = async () => {
     setIsLoading(true);
